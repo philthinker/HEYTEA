@@ -1,2 +1,5 @@
 
-add_library(LACTIC readCSV.cpp)
+add_library(LACTIC 
+    readCSV.cpp
+    getDataFromInput.cpp
+)
