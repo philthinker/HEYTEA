@@ -8,6 +8,10 @@ Haopeng Hu
 
 Have you ordered a cup of tea?
 
+- IMAGES: Wow! What a tasty drink!
 
+- LACTIC: Something acid but good.
+
+- MILK: Milk is of the color of a peaceful life.
 
 *Enjoy it anywhen you have done something great!*

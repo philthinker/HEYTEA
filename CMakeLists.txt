@@ -27,5 +27,5 @@ set(DRINKS
 # Add executable files and link libraries
 foreach(drink ${DRINKS})
     add_executable(${drink} ${drink}.cpp)
-    target_link_libraries(${drink} LACTIC Franka::Franka Eigen3::Eigen)
+    target_link_libraries(${drink} LACTIC MILK Franka::Franka Eigen3::Eigen)
 endforeach()
