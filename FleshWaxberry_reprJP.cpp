@@ -85,7 +85,7 @@ int main(int argc, char** argv){
                     }
                     if (timer*speed >= 1)
                     {
-                        franka::MotionFinished(JPc);
+                        return franka::MotionFinished(JPc);
                     }
                     return JPc;
                 });

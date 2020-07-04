@@ -14,6 +14,7 @@ find_package(Franka REQUIRED)
 
 # Add libraries
 add_subdirectory(LACTIC)
+add_subdirectory(MILK)
 
 # Set variable
 set(DRINKS 
@@ -22,6 +23,8 @@ set(DRINKS
     FleshWaxberry_lead
     FleshWaxberry_reprJP
     FleshWaxberry_zeroGravity
+    FleshWaxberry_readOnce
+    FleshWaxberry_OneshotJP
 )
 
 # Add executable files and link libraries

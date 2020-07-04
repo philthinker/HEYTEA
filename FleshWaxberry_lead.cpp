@@ -30,8 +30,6 @@ int main(int argc, char** argv){
     std::fstream fileOut_JP(fileOutName_JP.append("_JP.csv"),std::ios::out);
     std::string fileOutName_OTEE(fileOutName);
     std::fstream fileOut_OTEE(fileOutName_OTEE.append("_OTEE.csv"),std::ios::out);
-    std::string fileOutName_EETK(fileOutName);
-    std::fstream fileOut_EETK(fileOutName_EETK.append("_EETK.csv"),std::ios::out);
     // fps in [1,1000]
     unsigned int fps = std::floor(getDataFromInput(argv[3],1,1000));
     // timeout
@@ -64,11 +62,6 @@ int main(int argc, char** argv){
                     fileOut_OTEE << state.O_T_EE[i] << ',';
                 }
                 fileOut_OTEE << std::endl;
-                for (unsigned int i = 0; i < 6; i++)
-                {
-                    fileOut_EETK << state.EE_T_K[i] << ',';
-                }
-                fileOut_EETK << std::endl;
                 // Reset counter
                 count = 1;
             }else
@@ -83,12 +76,10 @@ int main(int argc, char** argv){
     {
         std::cerr << e.what() << '\n';
         fileOut_JP.close();
-        fileOut_EETK.close();
         fileOut_OTEE.close();
         return -1;
     }
     fileOut_JP.close();
-    fileOut_EETK.close();
     fileOut_OTEE.close();
     return 0;
 }
