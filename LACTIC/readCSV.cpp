@@ -28,5 +28,6 @@ std::vector<std::vector<double>> readCSV(std::string fileName){
         }
         dataRead.push_back(dataReadTmp);
     }
+    std::cout << fileName << " read" << std::endl;
     return dataRead;
 }
