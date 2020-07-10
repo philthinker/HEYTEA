@@ -25,6 +25,7 @@ set(DRINKS
     FleshWaxberry_zeroGravity
     FleshWaxberry_readOnce
     FleshWaxberry_OneshotJP
+    FleshWaxberry_OneshotJP_pro
 )
 
 # Add executable files and link libraries
