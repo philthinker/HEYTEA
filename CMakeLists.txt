@@ -26,6 +26,7 @@ set(DRINKS
     FleshWaxberry_readOnce
     FleshWaxberry_OneshotJP
     FleshWaxberry_OneshotJP_pro
+    FleshWaxberry_OneshotCarte_pro
 )
 
 # Add executable files and link libraries
