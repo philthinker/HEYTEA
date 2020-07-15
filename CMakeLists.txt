@@ -18,7 +18,6 @@ add_subdirectory(MILK)
 
 # Set variable
 set(DRINKS 
-    cmake_test
     FleshWaxberry_main
     FleshWaxberry_lead
     FleshWaxberry_reprJP
@@ -27,6 +26,9 @@ set(DRINKS
     FleshWaxberry_OneshotJP
     FleshWaxberry_OneshotJP_pro
     FleshWaxberry_OneshotCarte_pro
+    FleshWaxberry_imped_pre
+    FleshWaxberry_admit_pre
+    FleshWaxberry_imped_cis
 )
 
 # Add executable files and link libraries
