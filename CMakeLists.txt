@@ -21,14 +21,12 @@ set(DRINKS
     FleshWaxberry_main
     FleshWaxberry_lead
     FleshWaxberry_reprJP
+    FleshWaxberry_reprJP_K
     FleshWaxberry_zeroGravity
     FleshWaxberry_readOnce
     FleshWaxberry_OneshotJP
     FleshWaxberry_OneshotJP_pro
     FleshWaxberry_OneshotCarte_pro
-    FleshWaxberry_imped_pre
-    FleshWaxberry_admit_pre
-    FleshWaxberry_imped_cis
 )
 
 # Add executable files and link libraries
