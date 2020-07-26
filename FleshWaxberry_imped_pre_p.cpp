@@ -15,8 +15,6 @@
 #include <cmath>
 #include <fstream>
 
-#include <Eigen/Dense>
-
 #include <franka/robot.h>
 #include <franka/exception.h>
 #include <franka/model.h>

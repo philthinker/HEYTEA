@@ -1,12 +1,12 @@
-//FleshWaxberry_imped_pre
+//FleshWaxberry_pre_torque_p
 //  Aggressive and fast impedance controller for pre-assembly phase
 //  We assume that you HAVE moved the robot to the inital pose.
 //
 //  Haopeng Hu
-//  2020.07.14
+//  2020.07.26
 //  All rights reserved
 //
-//  Usage: argv[0] <fci-ip> fileIn1 fileIn2 fileOut
+//  Usage: argv[0] <fci-ip> fileIn1 fileOut
 
 #include <iostream>
 #include <string>
@@ -14,6 +14,8 @@
 #include <vector>
 #include <cmath>
 #include <fstream>
+
+#include <Eigen/Dense>
 
 #include <franka/robot.h>
 #include <franka/exception.h>
@@ -52,48 +54,57 @@ int main(int argc, char** argv){
     std::cout << "Robot is ready to move!" << std::endl;
     try
     {
-        // Control param.
-        std::array<double,7> kGains = {{600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0}};
-        std::array<double,7> dGains = {{50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0}};
+        // Impedance control param.
+        Eigen::MatrixXd K(6,6); // Stiffness
+        Eigen::MatrixXd D(6,6); // Damping
+        K.setZero();
+        K.topLeftCorner(3,3) << 150 * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
+        D.setZero();
+        D.topLeftCorner(3,3) << std::sqrt(150) * Eigen::MatrixXd::Identity(3,3);   // x y z damping
+        //std::array<double,7> kGains = {{600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0}};
+        //std::array<double,7> dGains = {{50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0}};
         // Init. the intermediate vaiable here
         unsigned int N = carte_pose.size();
         std::cout << N << " data are read." << std::endl;
-        unsigned int counter = 1;
+        unsigned int counter = 0;
         double time = 0.0;
-        std::array<double,16> goal_pose;
+        std::array<double,16> goal_pose_array;    // carte_pose
         // Start robot controller
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::Torques{
-                // Torque controller
-                // Dynamics compensation
-                std::array<double,7> coriolis = model.coriolis(state);
-                std::array<double,42> jacobin = model.zeroJacobian(franka::Frame::kEndEffector,state);
-                // Admittance control
-                std::array<double,7> tau_act;
-                for (unsigned int i = 0; i < 7; i++)
-                {
-                    tau_act[i] = kGains[i]*(state.q_d[i] - state.q[i]) - dGains[i]*state.dq[i] + coriolis[i];
-                }
-                return tau_act;
-            },
-            [&](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
-                // Cartesian motion generator
                 time += period.toSec();
                 if (time == 0.0)
                 {
-                    // The first must be the init. desired pose
-                    goal_pose = state.O_T_EE_d;
-                }
-                else
+                    goal_pose_array = state.O_T_EE;
+                }else
                 {
-                    goal_pose = vector2array16(carte_pose[counter]);
+                    goal_pose_array = vector2array16(carte_pose[counter]);
+                    counter++;
                 }
-                if (counter == N)
+                // Torque controller
+                // Dynamics compensation
+                std::array<double,7> coriolis_array = model.coriolis(state);
+                std::array<double,42> jacobin_array = model.zeroJacobian(franka::Frame::kEndEffector,state);
+                // Convert array to Eigen
+                Eigen::Map<const Eigen::Matrix<double,6,7>> jacobin(jacobin_array.data());
+                Eigen::Map<const Eigen::Matrix<double,7,1>> coriolis(coriolis_array.data());
+                Eigen::Map<const Eigen::Matrix<double,7,1>> curr_pose(state.O_T_EE.data());
+                Eigen::Map<const Eigen::Matrix<double,7,1>> curr_qd(state.dq.data());
+                Eigen::Map<Eigen::Matrix<double,4,4>> goal_pose(goal_pose_array.data());
+                // Impedance control
+                Eigen::VectorXd tau_act(7);
+                Eigen::VectorXd error_p(7);
+                error_p.setZero();
+                error_p.head(3) << goal_pose - curr_pose;
+                tau_act << jacobin.transpose() * (K * error_p - D * (jacobin * curr_qd)) + coriolis;
+                std::array<double,7> tau_act_array;
+                Eigen::VectorXd::Map(&tau_act_array[0],7) = tau_act;
+                franka::Torques tau_c(tau_act_array);
+                if (counter >= N)
                 {
-                    return franka::MotionFinished(goal_pose);
+                    franka::MotionFinished(tau_c);
                 }
-                counter++;
-                return goal_pose;
+                return tau_c;
             });
     }
     catch(const franka::Exception& e)

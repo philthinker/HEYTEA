@@ -18,7 +18,6 @@ add_subdirectory(MILK)
 
 # Set variable
 set(DRINKS 
-    FleshWaxberry_main
     #FleshWaxberry_lead
     #FleshWaxberry_reprJP
     FleshWaxberry_reprJP_K
@@ -33,8 +32,18 @@ set(DRINKS
     FleshWaxberry_OneshotP
 )
 
+set(EigenDRINKS
+    FleshWaxberry_main
+    FleshWaxberry_pre_torque_p
+)
+
 # Add executable files and link libraries
 foreach(drink ${DRINKS})
     add_executable(${drink} ${drink}.cpp)
-    target_link_libraries(${drink} LACTIC MILK Franka::Franka Eigen3::Eigen)
+    target_link_libraries(${drink} LACTIC MILK Franka::Franka)
 endforeach()
+
+foreach(drink ${EigenDRINKS})
+    add_executable(${drink} ${drink}.cpp)
+    target_link_libraries(${drink} LACTIC MILK Franka::Franka Eigen3::Eigen)
+endforeach(drink ${EigenDRINKS})
