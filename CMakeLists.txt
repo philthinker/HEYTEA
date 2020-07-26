@@ -19,14 +19,18 @@ add_subdirectory(MILK)
 # Set variable
 set(DRINKS 
     FleshWaxberry_main
-    FleshWaxberry_lead
-    FleshWaxberry_reprJP
+    #FleshWaxberry_lead
+    #FleshWaxberry_reprJP
     FleshWaxberry_reprJP_K
-    FleshWaxberry_zeroGravity
+    #FleshWaxberry_zeroGravity
     FleshWaxberry_readOnce
-    FleshWaxberry_OneshotJP
-    FleshWaxberry_OneshotJP_pro
-    FleshWaxberry_OneshotCarte_pro
+    #FleshWaxberry_OneshotJP
+    #FleshWaxberry_OneshotJP_pro
+    #FleshWaxberry_OneshotCarte_pro
+    FleshWaxberry_imped_pre
+    FleshWaxberry_imped_pre_p
+    FleshWaxberry_pre_p
+    FleshWaxberry_OneshotP
 )
 
 # Add executable files and link libraries

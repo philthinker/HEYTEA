@@ -1,12 +1,12 @@
-//FleshWaxberry_imped_pre
+//FleshWaxberry_imped_pre_p
 //  Aggressive and fast impedance controller for pre-assembly phase
 //  We assume that you HAVE moved the robot to the inital pose.
 //
 //  Haopeng Hu
-//  2020.07.14
+//  2020.07.25
 //  All rights reserved
 //
-//  Usage: argv[0] <fci-ip> fileIn1 fileIn2 fileOut
+//  Usage: argv[0] <fci-ip> fileIn1 fileOut
 
 #include <iostream>
 #include <string>
@@ -32,7 +32,7 @@ int main(int argc, char** argv){
     // Read what we need
     std::string carte_pose_file(argv[2]);
     //std::string pose_covar_file(argv[3]);
-    std::vector<std::vector<double>> carte_pose = readCSV(carte_pose_file);
+    std::vector<std::vector<double>> carte_p = readCSV(carte_pose_file);
     //std::vector<std::vector<double>> pose_covar = readCSV(pose_covar_file);
     // Prepare the output
     std::string pose_out_file(argv[3]);
@@ -52,16 +52,20 @@ int main(int argc, char** argv){
             {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}});
     franka::Model model = robot.loadModel();
     std::cout << "Robot is ready to move!" << std::endl;
+    unsigned int counter = 1;
     try
     {
         // Control param.
-        std::array<double,7> kGains = {{600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0}};
+        //std::array<double,7> kGains = {{600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0}};
+        std::array<double,7> kGains = {{200.0, 200.0, 200.0, 200.0, 50.0, 50.0, 20.0}};
+        //std::array<double,7> dGains = {{50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0}};
         std::array<double,7> dGains = {{50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0}};
         // Init. the intermediate vaiable here
-        unsigned int N = carte_pose.size();
+        unsigned int N = carte_p.size();
         std::cout << N << " data are read." << std::endl;
-        unsigned int counter = 1;
+        //unsigned int counter = 1;
         double time = 0.0;
+        std::array<double,16> init_pose;
         std::array<double,16> goal_pose;
         // Start robot controller
         robot.control(
@@ -84,11 +88,12 @@ int main(int argc, char** argv){
                 if (time == 0.0)
                 {
                     // The first must be the init. desired pose
+                    init_pose = state.O_T_EE_d;
                     goal_pose = state.O_T_EE_d;
                 }
                 else
                 {
-                    goal_pose = vector2array16(carte_pose[counter]);
+                    goal_pose = vectorP2arrayCarte(carte_p[counter],init_pose);
                 }
                 if (counter == N)
                 {
@@ -102,6 +107,7 @@ int main(int argc, char** argv){
     {
         std::cerr << e.what() << '\n';
         pose_out.close();
+        std::cout << "counter: " << counter << std::endl;
         return -1;
     }
     pose_out.close();
