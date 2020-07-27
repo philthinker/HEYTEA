@@ -37,6 +37,10 @@ set(EigenDRINKS
     FleshWaxberry_pre_torque_p
 )
 
+set(TESTS
+    Eigen_test    
+)
+
 # Add executable files and link libraries
 foreach(drink ${DRINKS})
     add_executable(${drink} ${drink}.cpp)
@@ -47,3 +51,8 @@ foreach(drink ${EigenDRINKS})
     add_executable(${drink} ${drink}.cpp)
     target_link_libraries(${drink} LACTIC MILK Franka::Franka Eigen3::Eigen)
 endforeach(drink ${EigenDRINKS})
+
+foreach(test ${TESTS})
+    add_executable(${test} ${test}.cpp)
+    target_link_libraries(${test} LACTIC MILK Franka::Franka Eigen3::Eigen)
+endforeach(test ${TESTS})

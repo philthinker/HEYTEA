@@ -52,23 +52,26 @@ int main(int argc, char** argv){
             {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}});
     franka::Model model = robot.loadModel();
     std::cout << "Robot is ready to move!" << std::endl;
+    unsigned int counter = 0;
     try
     {
         // Impedance control param.
-        Eigen::MatrixXd K(6,6); // Stiffness
-        Eigen::MatrixXd D(6,6); // Damping
+        Eigen::Matrix<double,6,6> K; // Stiffness
+        Eigen::Matrix<double,6,6> D; // Damping
         K.setZero();
-        K.topLeftCorner(3,3) << 150 * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
+        K.topLeftCorner(3,3) << 5 * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
         D.setZero();
-        D.topLeftCorner(3,3) << std::sqrt(150) * Eigen::MatrixXd::Identity(3,3);   // x y z damping
+        D.topLeftCorner(3,3) << 10 * Eigen::MatrixXd::Identity(3,3);   // x y z damping
         //std::array<double,7> kGains = {{600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0}};
         //std::array<double,7> dGains = {{50.0, 50.0, 50.0, 50.0, 30.0, 25.0, 15.0}};
         // Init. the intermediate vaiable here
         unsigned int N = carte_pose.size();
         std::cout << N << " data are read." << std::endl;
-        unsigned int counter = 0;
+        //unsigned int counter = 0;
         double time = 0.0;
         std::array<double,16> goal_pose_array;    // carte_pose
+        std::array<double,16> init_pose_array;
+        unsigned int fps_counter = 0;
         // Start robot controller
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::Torques{
@@ -76,11 +79,14 @@ int main(int argc, char** argv){
                 if (time == 0.0)
                 {
                     goal_pose_array = state.O_T_EE;
-                }else
+                    init_pose_array = state.O_T_EE;
+                }else if(fps_counter >= 5)
                 {
-                    goal_pose_array = vector2array16(carte_pose[counter]);
+                    //goal_pose_array = vectorP2arrayCarte(carte_pose[counter],init_pose_array);
                     counter++;
+                    fps_counter = 0;
                 }
+                fps_counter++;
                 // Torque controller
                 // Dynamics compensation
                 std::array<double,7> coriolis_array = model.coriolis(state);
@@ -88,19 +94,20 @@ int main(int argc, char** argv){
                 // Convert array to Eigen
                 Eigen::Map<const Eigen::Matrix<double,6,7>> jacobin(jacobin_array.data());
                 Eigen::Map<const Eigen::Matrix<double,7,1>> coriolis(coriolis_array.data());
-                Eigen::Map<const Eigen::Matrix<double,7,1>> curr_pose(state.O_T_EE.data());
+                Eigen::Map<const Eigen::Matrix<double,4,4>> curr_pose(state.O_T_EE.data());
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_qd(state.dq.data());
-                Eigen::Map<Eigen::Matrix<double,4,4>> goal_pose(goal_pose_array.data());
+                Eigen::Map<const Eigen::Matrix<double,4,4>> goal_pose(goal_pose_array.data());
                 // Impedance control
                 Eigen::VectorXd tau_act(7);
-                Eigen::VectorXd error_p(7);
+                Eigen::Matrix<double,6,1> error_p;
                 error_p.setZero();
-                error_p.head(3) << goal_pose - curr_pose;
+                error_p.head(3) << goal_pose.topRightCorner(3,1) - curr_pose.topRightCorner(3,1);
                 tau_act << jacobin.transpose() * (K * error_p - D * (jacobin * curr_qd)) + coriolis;
-                std::array<double,7> tau_act_array;
+                std::array<double,7> tau_act_array{};
                 Eigen::VectorXd::Map(&tau_act_array[0],7) = tau_act;
+                tau_act_array = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
                 franka::Torques tau_c(tau_act_array);
-                if (counter >= N)
+                if (counter > 0)
                 {
                     franka::MotionFinished(tau_c);
                 }
@@ -111,6 +118,7 @@ int main(int argc, char** argv){
     {
         std::cerr << e.what() << '\n';
         pose_out.close();
+        std::cout << "counter: " << counter << std::endl;
         return -1;
     }
     pose_out.close();
