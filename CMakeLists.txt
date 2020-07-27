@@ -38,7 +38,7 @@ set(EigenDRINKS
 )
 
 set(TESTS
-    Eigen_test    
+    Eigen_test
 )
 
 # Add executable files and link libraries
