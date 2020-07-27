@@ -80,9 +80,10 @@ int main(int argc, char** argv){
                 {
                     goal_pose_array = state.O_T_EE;
                     init_pose_array = state.O_T_EE;
-                }else if(fps_counter >= 5)
+                }else if(fps_counter >= 4)
                 {
                     //goal_pose_array = vectorP2arrayCarte(carte_pose[counter],init_pose_array);
+                    goal_pose_array = init_pose_array;
                     counter++;
                     fps_counter = 0;
                 }
@@ -97,17 +98,20 @@ int main(int argc, char** argv){
                 Eigen::Map<const Eigen::Matrix<double,4,4>> curr_pose(state.O_T_EE.data());
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_qd(state.dq.data());
                 Eigen::Map<const Eigen::Matrix<double,4,4>> goal_pose(goal_pose_array.data());
-                // Impedance control
+                // Impedance control signal
                 Eigen::VectorXd tau_act(7);
                 Eigen::Matrix<double,6,1> error_p;
                 error_p.setZero();
+                // Position error
                 error_p.head(3) << goal_pose.topRightCorner(3,1) - curr_pose.topRightCorner(3,1);
+                // Orientation error
+                // Control law
                 tau_act << jacobin.transpose() * (K * error_p - D * (jacobin * curr_qd)) + coriolis;
                 std::array<double,7> tau_act_array{};
                 Eigen::VectorXd::Map(&tau_act_array[0],7) = tau_act;
-                tau_act_array = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
+                //tau_act_array = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
                 franka::Torques tau_c(tau_act_array);
-                if (counter > 0)
+                if (counter > N)
                 {
                     franka::MotionFinished(tau_c);
                 }
