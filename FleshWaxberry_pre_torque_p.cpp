@@ -59,7 +59,7 @@ int main(int argc, char** argv){
         Eigen::Matrix<double,6,6> K; // Stiffness
         Eigen::Matrix<double,6,6> D; // Damping
         K.setZero();
-        K.topLeftCorner(3,3) << 5 * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
+        K.topLeftCorner(3,3) << 20 * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
         D.setZero();
         D.topLeftCorner(3,3) << 10 * Eigen::MatrixXd::Identity(3,3);   // x y z damping
         //std::array<double,7> kGains = {{600.0, 600.0, 600.0, 600.0, 250.0, 150.0, 50.0}};
@@ -78,12 +78,17 @@ int main(int argc, char** argv){
                 time += period.toSec();
                 if (time == 0.0)
                 {
+                    //Eigen::Map<const Eigen::Matrix<double,4,4>> goal_pose(state.O_T_EE.data());
                     goal_pose_array = state.O_T_EE;
-                    init_pose_array = state.O_T_EE;
-                }else if(fps_counter >= 4)
+                }else if(fps_counter >= 10)
                 {
                     //goal_pose_array = vectorP2arrayCarte(carte_pose[counter],init_pose_array);
-                    goal_pose_array = init_pose_array;
+                    //goal_pose_array = vector2array16(carte_pose[counter]);
+                    goal_pose_array = state.O_T_EE;
+                    for (unsigned int i = 0; i < 16; i++)
+                    {
+                        goal_pose_array[i] = carte_pose[counter][i];
+                    }
                     counter++;
                     fps_counter = 0;
                 }
@@ -97,7 +102,7 @@ int main(int argc, char** argv){
                 Eigen::Map<const Eigen::Matrix<double,7,1>> coriolis(coriolis_array.data());
                 Eigen::Map<const Eigen::Matrix<double,4,4>> curr_pose(state.O_T_EE.data());
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_qd(state.dq.data());
-                Eigen::Map<const Eigen::Matrix<double,4,4>> goal_pose(goal_pose_array.data());
+                Eigen::Map<Eigen::Matrix<double,4,4>> goal_pose(goal_pose_array.data());
                 // Impedance control signal
                 Eigen::VectorXd tau_act(7);
                 Eigen::Matrix<double,6,1> error_p;
@@ -109,11 +114,10 @@ int main(int argc, char** argv){
                 tau_act << jacobin.transpose() * (K * error_p - D * (jacobin * curr_qd)) + coriolis;
                 std::array<double,7> tau_act_array{};
                 Eigen::VectorXd::Map(&tau_act_array[0],7) = tau_act;
-                //tau_act_array = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
                 franka::Torques tau_c(tau_act_array);
                 if (counter > N)
                 {
-                    franka::MotionFinished(tau_c);
+                    return franka::MotionFinished(tau_c);
                 }
                 return tau_c;
             });
