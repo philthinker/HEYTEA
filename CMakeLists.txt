@@ -20,21 +20,19 @@ add_subdirectory(MILK)
 set(DRINKS 
     #FleshWaxberry_lead
     #FleshWaxberry_reprJP
-    FleshWaxberry_reprJP_K
+    #FleshWaxberry_reprJP_K
     #FleshWaxberry_zeroGravity
-    FleshWaxberry_readOnce
+    #FleshWaxberry_readOnce
     #FleshWaxberry_OneshotJP
     #FleshWaxberry_OneshotJP_pro
     #FleshWaxberry_OneshotCarte_pro
-    FleshWaxberry_imped_pre
-    FleshWaxberry_imped_pre_p
-    FleshWaxberry_pre_p
     FleshWaxberry_OneshotP
 )
 
 set(EigenDRINKS
     FleshWaxberry_main
-    FleshWaxberry_pre_torque_p
+    #FleshWaxberry_pre_torque_p
+    FW_pre_torque
 )
 
 set(TESTS
