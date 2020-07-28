@@ -53,8 +53,8 @@ int main(int argc, char** argv){
     robot.setCollisionBehavior(
             {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
             {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
-            {{10.0, 10.0, 10.0, 15.0, 15.0, 15.0}}, {{10.0, 10.0, 10.0, 15.0, 15.0, 15.0}},
-            {{10.0, 10.0, 10.0, 15.0, 15.0, 15.0}}, {{10.0, 10.0, 10.0, 15.0, 15.0, 15.0}});
+            {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}},
+            {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}});
     franka::Model model = robot.loadModel();
     std::cout << "Robot is ready to move!" << std::endl;
     unsigned int counter = 0;   // file line counter
@@ -154,6 +154,7 @@ int main(int argc, char** argv){
                 // Terminal condition
                 if (counter > N-1)
                 {
+                    tau_c.tau_J = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
                     return franka::MotionFinished(tau_c);
                 }
                 return tau_c;
@@ -164,27 +165,34 @@ int main(int argc, char** argv){
         time = 0.0;
         std::array<double,16> goal_pose;
         std::array<double,16> init_pose;
+        std::vector<std::vector<double>> dummy_pose = readCSV("ret01_dummy");
+        for (unsigned int i = 0; i < 16; i++)
+        {
+            goal_pose[i] = dummy_pose[0][i];
+        }
         robot.control(
-            [&](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
+            [&init_pose,&goal_pose,&time](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
                 // Cartesian motion plan
                 time += period.toSec();
                 if (time == 0.0)
                 {
                     // Initial pose is the current one
                     init_pose = state.O_T_EE;
-                    goal_pose = init_pose;
-                    for (unsigned int i = 0; i < 3; i++)
-                    {
-                        goal_pose[12+i] = carte_pose[N][i];
-                    }
+                    goal_pose[14] += 0.001;
                 }
                 franka::CartesianPose cmd_pose(init_pose);
+                /*
+                for (unsigned int i = 0; i < 12; i++)
+                {
+                    cmd_pose.O_T_EE[i] = goal_pose[i];
+                }
+                */
                 for (unsigned int i = 12; i < 15; i++)
                 {
                     // Interpolation
-                    cmd_pose.O_T_EE[i] = cosInterp(init_pose[i],goal_pose[i],time*0.4);
+                    cmd_pose.O_T_EE[i] = cosInterp(init_pose[i],goal_pose[i],time*0.2);
                 }
-                if (time*0.4 >= 1.0)
+                if (time*0.2 >= 1.0)
                 {
                     return franka::MotionFinished(cmd_pose);
                 }
