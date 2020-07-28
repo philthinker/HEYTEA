@@ -79,8 +79,8 @@ int main(int argc, char** argv){
         unsigned int fps_counter = 0;
         unsigned int log_counter = 0;
         double time = 0.0;
-        double alpha = 1.0;
-        double alp_counter = 0.0;
+        //double alpha = 1.0;
+        //double alp_counter = 0.0;
         // Start robot controller
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::Torques{
@@ -110,7 +110,7 @@ int main(int argc, char** argv){
                     goal_quat.z() = carte_quat[counter][3];
                     counter++;
                     fps_counter = 0;
-                    alp_counter += 1.0;
+                    //alp_counter += 1.0;
                 }
                 fps_counter++;
                 // Error
@@ -131,8 +131,8 @@ int main(int argc, char** argv){
                 // Control law
                 // Impedance control signal
                 Eigen::VectorXd tau_act(7);
-                alpha = 1.0 + 1.5*alp_counter/N;
-                tau_act << jacobin.transpose() * (alpha * K * error_pose - D * (jacobin * curr_dq)) + coriolis;
+                //alpha = 1.0 + alp_counter/N;
+                tau_act << jacobin.transpose() * (K * error_pose - D * (jacobin * curr_dq)) + coriolis;
                 std::array<double,7> tau_act_array{};
                 Eigen::VectorXd::Map(&tau_act_array[0],7) = tau_act;
                 franka::Torques tau_c(tau_act_array);
@@ -157,7 +157,40 @@ int main(int argc, char** argv){
                     return franka::MotionFinished(tau_c);
                 }
                 return tau_c;
-            });
+            }
+        );
+        robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
+        robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
+        time = 0.0;
+        std::array<double,16> goal_pose;
+        std::array<double,16> init_pose;
+        robot.control(
+            [&](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
+                // Cartesian motion plan
+                time += period.toSec();
+                if (time == 0.0)
+                {
+                    // Initial pose is the current one
+                    init_pose = state.O_T_EE;
+                    goal_pose = init_pose;
+                    for (unsigned int i = 0; i < 3; i++)
+                    {
+                        goal_pose[12+i] = carte_pose[N][i];
+                    }
+                }
+                franka::CartesianPose cmd_pose(init_pose);
+                for (unsigned int i = 12; i < 15; i++)
+                {
+                    // Interpolation
+                    cmd_pose.O_T_EE[i] = cosInterp(init_pose[i],goal_pose[i],time*0.4);
+                }
+                if (time*0.4 >= 1.0)
+                {
+                    return franka::MotionFinished(cmd_pose);
+                }
+                return cmd_pose;
+            }
+        );
     }
     catch(const franka::Exception& e)
     {
