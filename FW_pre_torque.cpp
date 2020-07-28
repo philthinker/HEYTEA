@@ -34,6 +34,7 @@ int main(int argc, char** argv){
     std::string carte_quat_file(argv[3]);
     std::vector<std::vector<double>> carte_pose = readCSV(carte_pose_file); // N x 3
     std::vector<std::vector<double>> carte_quat = readCSV(carte_quat_file); // N x 4
+    unsigned int N = carte_pose.size();
     // Prepare the output
     std::string pose_out_file(argv[4]);
     std::ofstream pose_out(pose_out_file.append(".csv"),std::ios::out);
@@ -42,6 +43,7 @@ int main(int argc, char** argv){
     double damping = getDataFromInput(argv[6],10.0,500.0);
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
+        << N << " data are read." << std::endl
         << "Log data will be stored in file: " << pose_out_file << std::endl
         << "Press Enter to continue. Good Luck!" << std::endl;
     std::cin.ignore();
@@ -58,7 +60,7 @@ int main(int argc, char** argv){
     unsigned int counter = 0;   // file line counter
     try
     {
-        // Impedance control param.
+        // Impedance control param. initialization
         Eigen::Matrix<double,6,6> K; // Stiffness
         Eigen::Matrix<double,6,6> D; // Damping
         K.setZero();
@@ -68,8 +70,6 @@ int main(int argc, char** argv){
         D.topLeftCorner(3,3) << damping * Eigen::MatrixXd::Identity(3,3);   // x y z damping
         D.bottomRightCorner(3,3) << std::sqrt(damping) * Eigen::MatrixXd::Identity(3,3);    // quat damping
         // Init. the intermediate vaiable here
-        unsigned int N = carte_pose.size();
-        std::cout << N << " data are read." << std::endl;
         //unsigned int counter = 0;
         // Init. the goals with current state for safety
         franka::RobotState curr_state = robot.readOnce();
@@ -77,6 +77,7 @@ int main(int argc, char** argv){
         Eigen::Vector3d goal_posi(goal_trans.translation());
         Eigen::Quaterniond goal_quat(goal_trans.linear());
         unsigned int fps_counter = 0;
+        unsigned int log_counter = 0;
         double time = 0.0;
         // Start robot controller
         robot.control(
@@ -94,7 +95,7 @@ int main(int argc, char** argv){
                 Eigen::Quaterniond curr_quat(curr_trans.linear());                              // Current quaternion
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_dq(state.dq.data());           // Current joint vel.
                 // The goals
-                if(fps_counter >= 1+counter/20)
+                if(fps_counter >= 5+counter/20)
                 {
                     for (unsigned int i = 0; i < 3; i++)
                     {
@@ -132,18 +133,22 @@ int main(int argc, char** argv){
                 Eigen::VectorXd::Map(&tau_act_array[0],7) = tau_act;
                 franka::Torques tau_c(tau_act_array);
                 // Write the tau_act_array for test
-                /*
-                if(fps_counter >= 1+counter/10-1)
+                if(log_counter >= 100)
                 {
                     for (short int i = 0; i < 7; i++)
                     {
                         pose_out << tau_act_array[i] << ',';
                     }
+                    for (short int i = 0; i < 16; i++)
+                    {
+                        pose_out << state.O_T_EE[i] << ',';
+                    }
                     pose_out << std::endl;
+                    log_counter = 0;
                 }
-                */
+                log_counter++;
                 // Terminal condition
-                if (counter > N-1)
+                if (counter > N-2)
                 {
                     return franka::MotionFinished(tau_c);
                 }
