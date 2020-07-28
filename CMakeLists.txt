@@ -25,7 +25,6 @@ set(DRINKS
     #FleshWaxberry_readOnce
     #FleshWaxberry_OneshotJP
     #FleshWaxberry_OneshotJP_pro
-    #FleshWaxberry_OneshotCarte_pro
     #FleshWaxberry_OneshotP
 )
 
@@ -33,6 +32,8 @@ set(EigenDRINKS
     #FleshWaxberry_main
     #FleshWaxberry_pre_torque_p
     FW_pre_torque
+    FW_pre_carte
+    FleshWaxberry_OneshotCarte
 )
 
 set(TESTS

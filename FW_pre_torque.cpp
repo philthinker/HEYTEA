@@ -97,7 +97,7 @@ int main(int argc, char** argv){
                 Eigen::Quaterniond curr_quat(curr_trans.linear());                              // Current quaternion
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_dq(state.dq.data());           // Current joint vel.
                 // The goals
-                if(fps_counter >= 10)
+                if(fps_counter >= 10 && counter < N-1)
                 {
                     for (unsigned int i = 0; i < 3; i++)
                     {
@@ -155,7 +155,11 @@ int main(int argc, char** argv){
                 if (counter > N-1)
                 {
                     tau_c.tau_J = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
-                    return franka::MotionFinished(tau_c);
+                    counter++;
+                    if(counter >= N+9)
+                    {
+                        return franka::MotionFinished(tau_c);
+                    }
                 }
                 return tau_c;
             }
