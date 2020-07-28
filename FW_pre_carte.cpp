@@ -72,14 +72,21 @@ int main(int argc, char** argv){
                 if (time == 0.0)
                 {
                     init_pose = state.O_T_EE;
+                    goal_pose = state.O_T_EE;
                 }
                 franka::CartesianPose carte_cmd(init_pose);
                 if (fps_counter >= 1)
                 {
+                    /*
                     for (unsigned int i = 0; i < 16; i++)
                     {
                         goal_pose[i] = carte_pose[counter][i];
                     }
+                    */
+                   for (unsigned int i = 12; i < 15; i++)
+                   {
+                       carte_cmd.O_T_EE[i] = carte_pose[counter][i];
+                   }
                     counter++;
                     fps_counter = 0;
                 }
@@ -103,6 +110,7 @@ int main(int argc, char** argv){
                 return carte_cmd;
             }
         );
+        std::cout << "counter: " << counter << std::endl;
     }
     catch(const franka::Exception& e)
     {

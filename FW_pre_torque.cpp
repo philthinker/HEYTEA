@@ -79,8 +79,8 @@ int main(int argc, char** argv){
         unsigned int fps_counter = 0;
         unsigned int log_counter = 0;
         double time = 0.0;
-        //double alpha = 1.0;
-        //double alp_counter = 0.0;
+        double alpha = 0.0;
+        double alp_counter = 0.0;
         // Start robot controller
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::Torques{
@@ -97,7 +97,7 @@ int main(int argc, char** argv){
                 Eigen::Quaterniond curr_quat(curr_trans.linear());                              // Current quaternion
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_dq(state.dq.data());           // Current joint vel.
                 // The goals
-                if(fps_counter >= 10 && counter < N-1)
+                if(fps_counter >= 2-1*alpha)
                 {
                     for (unsigned int i = 0; i < 3; i++)
                     {
@@ -110,7 +110,8 @@ int main(int argc, char** argv){
                     goal_quat.z() = carte_quat[counter][3];
                     counter++;
                     fps_counter = 0;
-                    //alp_counter += 1.0;
+                    alp_counter += 1.0;
+                    alpha = alp_counter/N;
                 }
                 fps_counter++;
                 // Error
@@ -155,15 +156,12 @@ int main(int argc, char** argv){
                 if (counter > N-1)
                 {
                     tau_c.tau_J = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
-                    counter++;
-                    if(counter >= N+9)
-                    {
-                        return franka::MotionFinished(tau_c);
-                    }
+                    return franka::MotionFinished(tau_c);
                 }
                 return tau_c;
             }
         );
+        
         robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
         robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
         time = 0.0;
@@ -182,15 +180,9 @@ int main(int argc, char** argv){
                 {
                     // Initial pose is the current one
                     init_pose = state.O_T_EE;
-                    goal_pose[14] += 0.001;
+                    goal_pose[14] += 0.0005;
                 }
                 franka::CartesianPose cmd_pose(init_pose);
-                /*
-                for (unsigned int i = 0; i < 12; i++)
-                {
-                    cmd_pose.O_T_EE[i] = goal_pose[i];
-                }
-                */
                 for (unsigned int i = 12; i < 15; i++)
                 {
                     // Interpolation
@@ -203,6 +195,7 @@ int main(int argc, char** argv){
                 return cmd_pose;
             }
         );
+        
     }
     catch(const franka::Exception& e)
     {

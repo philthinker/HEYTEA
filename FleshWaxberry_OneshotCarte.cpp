@@ -83,10 +83,10 @@ int main(int argc, char** argv){
         // S-spline position interpolation
         for (unsigned int i = 12; i < 15; i++)
         {
-            carte_c.O_T_EE[i] = cosInterp(carte_init[i],carte_goal[i],timer*0.4);
+            carte_c.O_T_EE[i] = cosInterp(carte_init[i],carte_goal[i],timer*0.1);
         }
         // SLERP quaternion interpolation
-        Eigen::Quaterniond curr_quat(init_quat.slerp(timer*0.4, goal_quat));
+        Eigen::Quaterniond curr_quat(init_quat.slerp(timer*0.1, goal_quat));
         Eigen::Matrix3d curr_rotm(curr_quat.toRotationMatrix());
         std::array<double,16> curr_rotm_array = Matrix3d2array16(curr_rotm);
         for (unsigned int i = 0; i < 12; i++)
@@ -107,7 +107,7 @@ int main(int argc, char** argv){
             counter++;
         }
         // Terminal condition
-        if (timer*0.4 >= 1)
+        if (timer*0.1 >= 1)
         {
             return franka::MotionFinished(carte_c);
         }
