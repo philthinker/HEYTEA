@@ -1,4 +1,4 @@
-//FW_pre_torque
+//FW_cis_torque
 //  Aggressive and fast impedance controller for pre-assembly phase
 //  We assume that you HAVE moved the robot to the inital pose.
 //
@@ -51,10 +51,10 @@ int main(int argc, char** argv){
     franka::Robot robot(argv[1]);
     // Set default param
     robot.setCollisionBehavior(
-            {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
-            {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
-            {{10.0, 10.0, 10.0, 15.0, 15.0, 15.0}}, {{10.0, 10.0, 10.0, 15.0, 15.0, 15.0}},
-            {{10.0, 10.0, 10.0, 15.0, 15.0, 15.0}}, {{10.0, 10.0, 10.0, 15.0, 15.0, 15.0}});
+            {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+            {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+            {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}},
+            {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}});
     franka::Model model = robot.loadModel();
     std::cout << "Robot is ready to move!" << std::endl;
     unsigned int counter = 0;   // file line counter
@@ -69,18 +69,16 @@ int main(int argc, char** argv){
         D.setZero();
         D.topLeftCorner(3,3) << damping * Eigen::MatrixXd::Identity(3,3);   // x y z damping
         D.bottomRightCorner(3,3) << std::sqrt(damping) * Eigen::MatrixXd::Identity(3,3);    // quat damping
+        // Init. the intermediate vaiable here
+        //unsigned int counter = 0;
         // Init. the goals with current state for safety
         franka::RobotState curr_state = robot.readOnce();
         Eigen::Affine3d goal_trans(Eigen::Matrix4d::Map(curr_state.O_T_EE.data()));
         Eigen::Vector3d goal_posi(goal_trans.translation());
         Eigen::Quaterniond goal_quat(goal_trans.linear());
-        // Init. the intermediate vaiable here
-        //unsigned int counter = 0;
         unsigned int fps_counter = 0;
         unsigned int log_counter = 0;
         double time = 0.0;
-        double alpha = 1.0;
-        double alp_counter = 0.0;
         // Start robot controller
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::Torques{
@@ -110,7 +108,6 @@ int main(int argc, char** argv){
                     goal_quat.z() = carte_quat[counter][3];
                     counter++;
                     fps_counter = 0;
-                    alp_counter += 1.0;
                 }
                 fps_counter++;
                 // Error
@@ -131,8 +128,13 @@ int main(int argc, char** argv){
                 // Control law
                 // Impedance control signal
                 Eigen::VectorXd tau_act(7);
-                alpha = 1.0 + 1.5*alp_counter/N;
-                tau_act << jacobin.transpose() * (alpha * K * error_pose - D * (jacobin * curr_dq)) + coriolis;
+                if(counter <= N - 100)
+                {
+                    tau_act << jacobin.transpose() * (K * error_pose - D * (jacobin * curr_dq)) + coriolis;
+                }else
+                {
+                    tau_act << jacobin.transpose() * (2 * K * error_pose - D * (jacobin * curr_dq)) + coriolis;
+                }
                 std::array<double,7> tau_act_array{};
                 Eigen::VectorXd::Map(&tau_act_array[0],7) = tau_act;
                 franka::Torques tau_c(tau_act_array);
