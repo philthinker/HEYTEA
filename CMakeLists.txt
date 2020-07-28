@@ -26,11 +26,11 @@ set(DRINKS
     #FleshWaxberry_OneshotJP
     #FleshWaxberry_OneshotJP_pro
     #FleshWaxberry_OneshotCarte_pro
-    FleshWaxberry_OneshotP
+    #FleshWaxberry_OneshotP
 )
 
 set(EigenDRINKS
-    FleshWaxberry_main
+    #FleshWaxberry_main
     #FleshWaxberry_pre_torque_p
     FW_pre_torque
 )

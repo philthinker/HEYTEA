@@ -32,7 +32,7 @@ int main(int argc, char** argv){
         std::vector<std::vector<double>> dataIn = readCSV(fileInName);
         for (unsigned int i = 12; i < 15; i++)
         {
-            carte_goal[i] = dataIn[0][i];
+            carte_goal[i] = dataIn[0][i-12];
         }
     }
     // Ready

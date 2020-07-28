@@ -38,8 +38,8 @@ int main(int argc, char** argv){
     std::string pose_out_file(argv[4]);
     std::ofstream pose_out(pose_out_file.append(".csv"),std::ios::out);
     // Stiffness and damping
-    double stiffness = getDataFromInput(argv[5],0.0,1000.0);
-    double damping = getDataFromInput(argv[6],0.0,1000.0);
+    double stiffness = getDataFromInput(argv[5],10.0,500.0);
+    double damping = getDataFromInput(argv[6],10.0,500.0);
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
         << "Log data will be stored in file: " << pose_out_file << std::endl
@@ -94,7 +94,7 @@ int main(int argc, char** argv){
                 Eigen::Quaterniond curr_quat(curr_trans.linear());                              // Current quaternion
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_dq(state.dq.data());           // Current joint vel.
                 // The goals
-                if(fps_counter >= 10)
+                if(fps_counter >= 1+counter/20)
                 {
                     for (unsigned int i = 0; i < 3; i++)
                     {
@@ -131,6 +131,18 @@ int main(int argc, char** argv){
                 std::array<double,7> tau_act_array{};
                 Eigen::VectorXd::Map(&tau_act_array[0],7) = tau_act;
                 franka::Torques tau_c(tau_act_array);
+                // Write the tau_act_array for test
+                /*
+                if(fps_counter >= 1+counter/10-1)
+                {
+                    for (short int i = 0; i < 7; i++)
+                    {
+                        pose_out << tau_act_array[i] << ',';
+                    }
+                    pose_out << std::endl;
+                }
+                */
+                // Terminal condition
                 if (counter > N-1)
                 {
                     return franka::MotionFinished(tau_c);
