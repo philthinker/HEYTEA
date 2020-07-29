@@ -70,9 +70,9 @@ int main(int argc, char** argv){
         std::array<double,16> init_pose;
         double timer = 0.0;
         double scalar = 0.0001;
+        unsigned int fps_counter = 0;
         robot.control(
-            [&timer,scalar,&init_pose,&quat_init,&quat_goal](const franka::RobotState& state, 
-                                                                        franka::Duration period) -> franka::CartesianPose{
+            [&](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
             // SLERP for orientation
             timer += period.toSec();
             if (timer == 0.0)
@@ -88,6 +88,15 @@ int main(int argc, char** argv){
             pose_cmd_array[13] = init_pose[13];
             pose_cmd_array[14] = init_pose[14];
             franka::CartesianPose pose_cmd_franka(pose_cmd_array);
+            if(fps_counter >= 10){
+                fps_counter = 0;
+                for (unsigned int i = 0; i < 16; i++)
+                {
+                    fileOut << pose_cmd_franka.O_T_EE[i] << ',';
+                }
+                fileOut << std::endl;
+            }
+            fps_counter++;
             if(timer*scalar >= 1){
                 return franka::MotionFinished(pose_cmd_franka);
             }
