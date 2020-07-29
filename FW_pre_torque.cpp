@@ -89,9 +89,11 @@ int main(int argc, char** argv){
                 // Dynamics compensation
                 std::array<double,7> coriolis_array = model.coriolis(state);
                 std::array<double,42> jacobin_array = model.zeroJacobian(franka::Frame::kEndEffector,state);
+                //std::array<double,7> gravity_array = model.gravity(state);
                 // Convert array to Eigen
                 Eigen::Map<const Eigen::Matrix<double,6,7>> jacobin(jacobin_array.data());      // Spatial Jacobian
                 Eigen::Map<const Eigen::Matrix<double,7,1>> coriolis(coriolis_array.data());    // Coriolis
+                //Eigen::Map<const Eigen::Matrix<double,7,1>> gravity(gravity_array.data());
                 Eigen::Affine3d curr_trans(Eigen::Matrix4d::Map(state.O_T_EE.data()));          // Current Carte pose
                 Eigen::Vector3d curr_posi(curr_trans.translation());                            // Current Carte position
                 Eigen::Quaterniond curr_quat(curr_trans.linear());                              // Current quaternion
@@ -186,9 +188,9 @@ int main(int argc, char** argv){
                 for (unsigned int i = 12; i < 15; i++)
                 {
                     // Interpolation
-                    cmd_pose.O_T_EE[i] = cosInterp(init_pose[i],goal_pose[i],time*0.2);
+                    cmd_pose.O_T_EE[i] = cosInterp(init_pose[i],goal_pose[i],time*0.1);
                 }
-                if (time*0.2 >= 1.0)
+                if (time*0.1 >= 1.0)
                 {
                     return franka::MotionFinished(cmd_pose);
                 }

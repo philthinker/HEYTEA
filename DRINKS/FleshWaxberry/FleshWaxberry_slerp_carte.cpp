@@ -1,8 +1,8 @@
-//FleshWaxberry_slerp
+//FleshWaxberry_slerp_carte
 //  Move to the given Orientation
 //
 //  Haopeng Hu
-//  2020.07.29
+//  2020/07/28
 //
 // argv[0] <fci-ip> fileInName fileOutName
 
@@ -58,8 +58,8 @@ int main(int argc, char** argv){
     // Init. robot
     franka::Robot robot(argv[1]);
     franka::Model model = robot.loadModel();
-    //robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
-    //robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
+    robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
+    robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
     robot.setCollisionBehavior(
             {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
             {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
@@ -67,7 +67,7 @@ int main(int argc, char** argv){
             {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}});
     std::cout << "Robot is ready to move" << std::endl;
     // Controller param.
-    double stiffness = 30000;
+    double stiffness = 300;
     double damping = 200;
     Eigen::MatrixXd K(6,6); K.setZero();
     Eigen::MatrixXd D(6,6); D.setZero();
@@ -77,22 +77,19 @@ int main(int argc, char** argv){
     D.bottomRightCorner(3,3) << std::sqrt(damping) * Eigen::MatrixXd::Identity(3,3);
     try{
         // Init. state
-        franka::RobotState init_state = robot.readOnce();
-        Eigen::Affine3d trans_init(Eigen::Matrix4d::Map(init_state.O_T_EE.data()));
-        Eigen::Quaterniond quat_init(trans_init.linear());
-        Eigen::Quaterniond quat_d(quat_init);
+        Eigen::Quaterniond quat_init;
         std::array<double,16> init_pose;
         double timer = 0.0;
-        double scalar = 1;
-        unsigned int counter = 0;
+        double scalar = 0.1;
         unsigned int fps_counter = 0;
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::Torques{
                 // Impedance controller
-                counter++;
                 // Read the state
                 Eigen::Affine3d trans_t(Eigen::Matrix4d::Map(state.O_T_EE.data()));
+                Eigen::Affine3d trans_d(Eigen::Matrix4d::Map(state.O_T_EE_d.data()));
                 Eigen::Quaterniond quat_t(trans_t.linear());
+                Eigen::Quaterniond quat_d(trans_d.linear());
                 Eigen::Map<const Eigen::Matrix<double,7,1>> dq_t(state.dq.data());
                 std::array<double,7> coriolis_array = model.coriolis(state);
                 std::array<double,42> jacobin_array = model.zeroJacobian(franka::Frame::kEndEffector,state);
@@ -100,15 +97,6 @@ int main(int argc, char** argv){
                 Eigen::Map<const Eigen::Matrix<double,6,7>> jacobin(jacobin_array.data());      // Spatial Jacobian
                 Eigen::Map<const Eigen::Matrix<double,7,1>> coriolis(coriolis_array.data());    // Coriolis
                 Eigen::Map<const Eigen::Matrix<double,7,1>> gravity(gravity_array.data());      // Gravity
-                // SLERP
-                if(counter >= 10){
-                    counter = 0;
-                    timer += 0.002;
-                    if(timer > 1.0){
-                        timer = 1.0;
-                    }
-                    quat_d = quat_init.slerp(timer,quat_goal);
-                }
                 // Compute the error
                 Eigen::VectorXd error(6); error.setZero();
                 if(quat_d.coeffs().dot(quat_t.coeffs()) < 0.0){ // Double cover issue
@@ -123,22 +111,41 @@ int main(int argc, char** argv){
                 std::array<double,7> tau_c_array;
                 Eigen::VectorXd::Map(&tau_c_array[0],7) = tau_c;
                 franka::Torques tau_c_franka(tau_c_array);
-                if(timer >= 1.0){
-                    double error_final = error.norm();
-                    if(error_final <= 0.01){
-                        return franka::MotionFinished(tau_c_franka);
-                    }
-                }
                 return tau_c_franka;
-            });
-        franka::RobotState final_state = robot.readOnce();
-        Eigen::Affine3d trans_final(Eigen::Matrix4d::Map(final_state.O_T_EE.data()));
-        Eigen::Quaterniond quat_final(trans_final.linear());
-        if(quat_final.w() < 0.0){
-            quat_final.coeffs() = -quat_final.coeffs();
-        }
-        std::cout << "Final quaternion: " << std::endl << quat_final.coeffs();
-        std::cout << std::endl;
+            },
+            [&](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
+            // SLERP for orientation
+            timer += period.toSec();
+            if (timer == 0.0)
+            {
+                init_pose = state.O_T_EE;
+                Eigen::Affine3d init_trans(Eigen::Matrix4d::Map(init_pose.data()));
+                quat_init = init_trans.linear();
+            }
+            Eigen::Quaterniond quat_cmd(quat_init.slerp(timer * scalar, quat_goal));
+            Eigen::Matrix3d rotm_cmd(quat_cmd.toRotationMatrix());
+            std::array<double,16> pose_cmd_array = Matrix3d2array16(rotm_cmd);
+            pose_cmd_array[12] = init_pose[12];
+            pose_cmd_array[13] = init_pose[13];
+            pose_cmd_array[14] = init_pose[14];
+            franka::CartesianPose pose_cmd_franka(pose_cmd_array);
+            if(fps_counter >= 10){
+                fps_counter = 0;
+                for (unsigned int i = 0; i < 16; i++)
+                {
+                    fileOut << pose_cmd_franka.O_T_EE[i] << ',';
+                }
+                fileOut << std::endl;
+            }
+            fps_counter++;
+            franka::CartesianPose tmp_pose_cmd(init_pose);
+            if(timer*scalar >= 1){
+                return franka::MotionFinished(pose_cmd_franka);
+                //return franka::MotionFinished(tmp_pose_cmd);
+            }
+            return pose_cmd_franka;
+            //return tmp_pose_cmd;
+        });
     }
     catch(const franka::Exception& e){
         std::cerr << e.what() <<'\n';
