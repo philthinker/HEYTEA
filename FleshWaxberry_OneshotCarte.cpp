@@ -83,6 +83,7 @@ int main(int argc, char** argv){
         return carte_c;
         });
     timer = 0.0;
+    /*
     robot.control(
         [&timer,&init_quat,&goal_quat,&carte_init](const franka::RobotState& state,franka::Duration period) -> franka::CartesianPose{
             // SLERP for orientation
@@ -105,6 +106,7 @@ int main(int argc, char** argv){
             return carte_c;
         }
     );
+    */
     }
     catch(const franka::Exception& e){
         std::cerr << e.what() <<'\n';

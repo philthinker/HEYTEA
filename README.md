@@ -14,4 +14,6 @@ Have you ordered a cup of tea?
 
 - MILK: Milk is of the color of a peaceful life.
 
+- DRINKS: May there be no old time to memorize.
+
 *Enjoy it anywhen you have done something great!*
