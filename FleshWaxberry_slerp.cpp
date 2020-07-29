@@ -4,7 +4,7 @@
 //  Haopeng Hu
 //  2020.07.29
 //
-// argv[0] <fci-ip> fileInName fileOutName
+// argv[0] <fci-ip> fileInName
 
 #include <iostream>
 #include <string>
@@ -23,9 +23,9 @@
 #include "MILK/MILK.h"
 
 int main(int argc, char** argv){
-    if (argc < 4)
+    if (argc < 3)
     {
-        std::cerr << "Usage: " << argv[0] <<" <fci-ip> fileIn fileOut" << std::endl;
+        std::cerr << "Usage: " << argv[0] <<" <fci-ip> fileIn" << std::endl;
         return -1;
     }
     // Destination
@@ -43,8 +43,8 @@ int main(int argc, char** argv){
     quat_goal.y() = quat_goal_array[2];
     quat_goal.z() = quat_goal_array[3];
     // File out
-    std::string fileOutName(argv[3]);
-    std::ofstream fileOut(fileOutName.append(".csv"),std::ios::out);
+    //std::string fileOutName(argv[3]);
+    //std::ofstream fileOut(fileOutName.append(".csv"),std::ios::out);
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
         << "The robot will move to orientation:" << std::endl;
@@ -52,7 +52,7 @@ int main(int argc, char** argv){
     {
         std::cout << quat_goal_array[i] << ',';
     }
-    std::cout << "Data will be stored in file: " << fileOutName << std::endl;
+    //std::cout << "Data will be stored in file: " << fileOutName << std::endl;
     std::cout << std::endl << "Press Enter to continue..." << std::endl;
     std::cin.ignore();
     // Init. robot
@@ -142,9 +142,9 @@ int main(int argc, char** argv){
     }
     catch(const franka::Exception& e){
         std::cerr << e.what() <<'\n';
-        fileOut.close();
+        //fileOut.close();
         return -1;
     }
-    fileOut.close();
+    //fileOut.close();
     return 0;
 }

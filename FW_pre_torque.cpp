@@ -169,7 +169,7 @@ int main(int argc, char** argv){
         time = 0.0;
         std::array<double,16> goal_pose;
         std::array<double,16> init_pose;
-        std::vector<std::vector<double>> dummy_pose = readCSV("ret01_dummy");
+        std::vector<std::vector<double>> dummy_pose = readCSV("Data/ret01_dummy");
         for (unsigned int i = 0; i < 16; i++)
         {
             goal_pose[i] = dummy_pose[0][i];

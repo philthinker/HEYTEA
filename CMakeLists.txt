@@ -31,12 +31,13 @@ set(EigenDRINKS
     #FleshWaxberry_pre_torque_p
     FW_pre_torque
     FW_pre_carte
-    FleshWaxberry_OneshotCarte
-    FleshWaxberry_slerp
+    FW_cis_torque
+    #FleshWaxberry_OneshotCarte
+    #FleshWaxberry_slerp
 )
 
 set(TESTS
-    Eigen_test
+    #Eigen_test
 )
 
 # Add executable files and link libraries
