@@ -69,7 +69,7 @@ int main(int argc, char** argv){
         Eigen::Quaterniond quat_init;
         std::array<double,16> init_pose;
         double timer = 0.0;
-        double scalar = 0.0001;
+        double scalar = 0.4;
         unsigned int fps_counter = 0;
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
@@ -97,10 +97,13 @@ int main(int argc, char** argv){
                 fileOut << std::endl;
             }
             fps_counter++;
+            franka::CartesianPose tmp_pose_cmd(init_pose);
             if(timer*scalar >= 1){
-                return franka::MotionFinished(pose_cmd_franka);
+                //return franka::MotionFinished(pose_cmd_franka);
+                return franka::MotionFinished(tmp_pose_cmd);
             }
-            return pose_cmd_franka;
+            //return pose_cmd_franka;
+            return tmp_pose_cmd;
         });
     }
     catch(const franka::Exception& e){
