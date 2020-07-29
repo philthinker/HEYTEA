@@ -1,4 +1,4 @@
-//FleshWasberry_slerp
+//FleshWaxberry_slerp
 //  Move to the given Orientation
 //
 //  Haopeng Hu
@@ -66,24 +66,27 @@ int main(int argc, char** argv){
     std::cout << "Robot is ready to move" << std::endl;
     try{
         // Init. state
-        franka::RobotState init_state = robot.readOnce();
-        Eigen::Affine3d init_trans(Eigen::Matrix4d::Map(init_state.O_T_EE.data()));
-        Eigen::Vector3d posi_init(init_trans.translation());
-        Eigen::Quaterniond quat_init(init_trans.linear());
-        unsigned int fps_counter = 1;
+        Eigen::Quaterniond quat_init;
+        std::array<double,16> init_pose;
         double timer = 0.0;
-        double scalar = 0.01;
+        double scalar = 0.0001;
         robot.control(
-            [&timer, &quat_init, &quat_goal, &fileOut, &posi_init, scalar](const franka::RobotState& state, 
+            [&timer,scalar,&init_pose,&quat_init,&quat_goal](const franka::RobotState& state, 
                                                                         franka::Duration period) -> franka::CartesianPose{
             // SLERP for orientation
             timer += period.toSec();
+            if (timer == 0.0)
+            {
+                init_pose = state.O_T_EE;
+                Eigen::Affine3d init_trans(Eigen::Matrix4d::Map(init_pose.data()));
+                quat_init = init_trans.linear();
+            }
             Eigen::Quaterniond quat_cmd(quat_init.slerp(timer * scalar, quat_goal));
             Eigen::Matrix3d rotm_cmd(quat_cmd.toRotationMatrix());
             std::array<double,16> pose_cmd_array = Matrix3d2array16(rotm_cmd);
-            pose_cmd_array[12] = posi_init[0];
-            pose_cmd_array[13] = posi_init[1];
-            pose_cmd_array[14] = posi_init[2];
+            pose_cmd_array[12] = init_pose[12];
+            pose_cmd_array[13] = init_pose[13];
+            pose_cmd_array[14] = init_pose[14];
             franka::CartesianPose pose_cmd_franka(pose_cmd_array);
             if(timer*scalar >= 1){
                 return franka::MotionFinished(pose_cmd_franka);

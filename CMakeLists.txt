@@ -32,7 +32,7 @@ set(EigenDRINKS
     FW_pre_torque
     FW_pre_carte
     FleshWaxberry_OneshotCarte
-    FleshWasberry_slerp
+    FleshWaxberry_slerp
 )
 
 set(TESTS

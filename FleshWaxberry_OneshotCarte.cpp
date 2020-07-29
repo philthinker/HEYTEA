@@ -92,14 +92,14 @@ int main(int argc, char** argv){
             }
             franka::CartesianPose carte_c(carte_init);
             // SLERP
-            Eigen::Quaterniond cmd_quat(init_quat.slerp(timer*0.01,goal_quat));
+            Eigen::Quaterniond cmd_quat(init_quat.slerp(timer*0.00001,goal_quat));
             std::array<double,16> cmd_trans_array = Matrix3d2array16(cmd_quat.toRotationMatrix());
             for (unsigned int i = 0; i < 12; i++)
             {
                 carte_c.O_T_EE[i] = cmd_trans_array[i];
             }
             // Terminal condition
-            if(timer*0.01 >= 1){
+            if(timer*0.00001 >= 1){
                 return franka::MotionFinished(carte_c);
             }
             return carte_c;
