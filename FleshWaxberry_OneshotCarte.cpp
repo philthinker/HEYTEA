@@ -4,7 +4,7 @@
 //  Haopeng Hu
 //  2020/07/28
 //
-// argv[0] <fci-ip> fileInName fileOutName fps
+// argv[0] <fci-ip> fileInName
 
 #include <iostream>
 #include <string>
@@ -22,9 +22,9 @@
 #include "MILK/MILK.h"
 
 int main(int argc, char** argv){
-    if (argc < 5)
+    if (argc < 3)
     {
-        std::cerr << "Usage: " << argv[0] <<" <fci-ip> fileInName fileOutName fps" << std::endl;
+        std::cerr << "Usage: " << argv[0] <<" <fci-ip> fileIn" << std::endl;
         return -1;
     }
     // Destination
@@ -38,12 +38,6 @@ int main(int argc, char** argv){
     // To Eigen data (orientation)
     Eigen::Affine3d goal_trans(Eigen::Matrix4d::Map(carte_goal.data()));
     Eigen::Quaterniond goal_quat(goal_trans.linear());
-    // fps [1,100]
-    std::string FPS(argv[4]);
-    unsigned int fps = std::floor(getDataFromInput(argv[4],1,100));
-    // File out
-    std::string fileOutName(argv[3]);
-    std::ofstream fileOut(fileOutName.append(".csv"),std::ios::out);
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
         << "The robot will move to Cartesian position:" << std::endl;
@@ -51,7 +45,6 @@ int main(int argc, char** argv){
     {
         std::cout << carte_goal[i] << ',';
     }
-    std::cout << "Data will be stored in file: " << fileOutName << std::endl;
     std::cout << std::endl << "Press Enter to continue..." << std::endl;
     std::cin.ignore();
     // Init. robot
@@ -69,11 +62,10 @@ int main(int argc, char** argv){
         Eigen::Affine3d init_trans(Eigen::Matrix4d::Map(init_state.O_T_EE.data()));
         Eigen::Quaterniond init_quat(init_trans.linear());
         std::array<double,16> carte_init;
-        unsigned int counter = 1;
         double timer = 0.0;
     robot.control(
-        [&](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
-        // S-spline interpolation for position and SLERP for orientation
+        [&timer,&carte_init,&carte_goal](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
+        // S-spline interpolation for position
         timer += period.toSec();
         if (timer == 0.0)
         {
@@ -85,40 +77,38 @@ int main(int argc, char** argv){
         {
             carte_c.O_T_EE[i] = cosInterp(carte_init[i],carte_goal[i],timer*0.1);
         }
-        // SLERP quaternion interpolation
-        Eigen::Quaterniond curr_quat(init_quat.slerp(timer*0.1, goal_quat));
-        Eigen::Matrix3d curr_rotm(curr_quat.toRotationMatrix());
-        std::array<double,16> curr_rotm_array = Matrix3d2array16(curr_rotm);
-        for (unsigned int i = 0; i < 12; i++)
-        {
-            carte_c.O_T_EE[i] = curr_rotm_array[i];
-        }
-        // Read data to file out
-        if (counter >= 1000/fps)
-        {
-            for (unsigned int i = 0; i < 16; i++)
-            {
-                fileOut << state.O_T_EE[i] << ',';
-            }
-            fileOut << std::endl;
-            counter = 1;
-        }else
-        {
-            counter++;
-        }
-        // Terminal condition
-        if (timer*0.1 >= 1)
-        {
+        if(timer*0.1 >= 1){
             return franka::MotionFinished(carte_c);
         }
         return carte_c;
-    });
+        });
+    timer = 0.0;
+    robot.control(
+        [&timer,&init_quat,&goal_quat,&carte_init](const franka::RobotState& state,franka::Duration period) -> franka::CartesianPose{
+            // SLERP for orientation
+            timer += period.toSec();
+            if(timer == 0.0){
+                carte_init = state.O_T_EE;
+            }
+            franka::CartesianPose carte_c(carte_init);
+            // SLERP
+            Eigen::Quaterniond cmd_quat(init_quat.slerp(timer*0.01,goal_quat));
+            std::array<double,16> cmd_trans_array = Matrix3d2array16(cmd_quat.toRotationMatrix());
+            for (unsigned int i = 0; i < 12; i++)
+            {
+                carte_c.O_T_EE[i] = cmd_trans_array[i];
+            }
+            // Terminal condition
+            if(timer*0.01 >= 1){
+                return franka::MotionFinished(carte_c);
+            }
+            return carte_c;
+        }
+    );
     }
     catch(const franka::Exception& e){
         std::cerr << e.what() <<'\n';
-        fileOut.close();
         return -1;
     }
-    fileOut.close();
     return 0;
 }
