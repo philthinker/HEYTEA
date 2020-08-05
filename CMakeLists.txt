@@ -32,6 +32,7 @@ set(EigenDRINKS
     FW_pre_torque
     FW_pre_carte
     FW_cis_torque
+    FW_pre_torque2
     #FleshWaxberry_OneshotCarte
     #FleshWaxberry_slerp
 )

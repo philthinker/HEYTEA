@@ -114,7 +114,7 @@ int main(int argc, char** argv){
                 if(quat_d.coeffs().dot(quat_t.coeffs()) < 0.0){ // Double cover issue
                     quat_t.coeffs() = -quat_t.coeffs();
                 }
-                Eigen::Quaterniond error_quat(quat_d.inverse()*quat_t);
+                Eigen::Quaterniond error_quat(quat_t.inverse()*quat_d);
                 error.tail(3) << error_quat.x(),error_quat.y(),error_quat.z();
                 error.tail(3) << -trans_t.linear() * error.tail(3);
                 // Control law
