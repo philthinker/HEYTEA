@@ -16,6 +16,4 @@ Have you ordered a cup of tea?
 
 - DRINKS: May there be no old time to memorize.
 
-- ICECREAM: Icecream is the sole of many sweet drinks.
-
 *Enjoy it anywhen you have done something great!*
