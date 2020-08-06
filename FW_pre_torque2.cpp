@@ -41,8 +41,8 @@ int main(int argc, char** argv){
     std::string pose_out_file(argv[5]);
     std::ofstream pose_out(pose_out_file.append(".csv"),std::ios::out);
     // Stiffness and damping
-    double stiffness = 300;
-    double damping = 200;
+    double stiffness = 80;
+    double damping = 50;
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
         << N << " data are read." << std::endl
@@ -85,8 +85,6 @@ int main(int argc, char** argv){
         unsigned int fps_counter = 0;
         unsigned int log_counter = 0;
         double time = 0.0;
-        double alpha = 0.0;
-        double alp_counter = 0.0;
         // Start robot controller
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::Torques{
@@ -105,7 +103,7 @@ int main(int argc, char** argv){
                 Eigen::Quaterniond curr_quat(curr_trans.linear());                              // Current quaternion
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_dq(state.dq.data());           // Current joint vel.
                 // The goals
-                if(fps_counter >= 2-1*alpha)
+                if(fps_counter >= 5)
                 {
                     for (unsigned int i = 0; i < 3; i++)
                     {
@@ -118,8 +116,6 @@ int main(int argc, char** argv){
                     goal_quat.z() = carte_quat[counter][3];
                     counter++;
                     fps_counter = 0;
-                    alp_counter += 1.0;
-                    alpha = alp_counter/N;
                 }
                 fps_counter++;
                 // Error
@@ -169,6 +165,7 @@ int main(int argc, char** argv){
                 return tau_c;
             }
         );
+        /*
         // Orientation compensation
         robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
         robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
@@ -206,6 +203,7 @@ int main(int argc, char** argv){
                 return cmd_pose;
             }
         );
+        */
         // Position compensation
     }
     catch(const franka::Exception& e)
