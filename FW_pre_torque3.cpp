@@ -1,6 +1,7 @@
-//FW_pre_torque2
+//FW_pre_torque3
 //  Aggressive and fast impedance controller for pre-assembly phase
 //  We assume that you HAVE moved the robot to the inital pose.
+//  Only orientation is controlled
 //
 //  Haopeng Hu
 //  2020.07.27
@@ -126,7 +127,7 @@ int main(int argc, char** argv){
                 Eigen::Matrix<double,6,1> error_pose;
                 error_pose.setZero();
                 // Position error
-                error_pose.head(3) << goal_posi - curr_posi;
+                //error_pose.head(3) << goal_posi - curr_posi;
                 // Orientation error
                 error_pose.tail(3) << quatSubtraction(goal_quat,curr_quat);
                 /*
