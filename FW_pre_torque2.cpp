@@ -41,8 +41,8 @@ int main(int argc, char** argv){
     std::string pose_out_file(argv[5]);
     std::ofstream pose_out(pose_out_file.append(".csv"),std::ios::out);
     // Stiffness and damping
-    double stiffness = 80;
-    double damping = 50;
+    double stiffness = 20;
+    double damping = 20;
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
         << N << " data are read." << std::endl
@@ -124,6 +124,8 @@ int main(int argc, char** argv){
                 // Position error
                 error_pose.head(3) << goal_posi - curr_posi;
                 // Orientation error
+                error_pose.tail(3) << quatSubtraction(goal_quat,curr_quat);
+                /*
                 // Double cover issue
                 if (goal_quat.coeffs().dot(curr_quat.coeffs()) < 0.0)
                 {
@@ -133,6 +135,7 @@ int main(int argc, char** argv){
                 Eigen::Quaterniond error_quat(curr_quat.conjugate()*goal_quat);
                 error_pose.tail(3) << error_quat.x(),error_quat.y(),error_quat.z();
                 error_pose.tail(3) << -curr_trans.linear() * error_pose.tail(3);
+                */
                 // Control law
                 // Impedance control signal
                 Eigen::VectorXd tau_act(7);
