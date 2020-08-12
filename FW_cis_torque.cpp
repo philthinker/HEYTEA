@@ -1,12 +1,13 @@
 //FW_cis_torque
-//  Aggressive and fast impedance controller for pre-assembly phase
+//  Aggressive and fast impedance controller for cis-assembly phase
 //  We assume that you HAVE moved the robot to the inital pose.
+//  There is a joint space compensation after the torque control loop
 //
 //  Haopeng Hu
-//  2020.07.29
+//  2020.08.12
 //  All rights reserved
 //
-//  Usage: argv[0] <fci-ip> fileIn1 fileIn2 fileOut K D
+//  Usage: argv[0] <fci-ip> fileIn1 fileIn2 fileIn3 fileIn4 fileOut
 
 #include <iostream>
 #include <string>
@@ -25,24 +26,26 @@
 #include "MILK/MILK.h"
 
 int main(int argc, char** argv){
-    if(argc<6){
-        std::cerr << "Usage: " << argv[0] << " <fci-ip> fileIn1 fileIn2 fileIn3 fileOut" << std::endl;
+    if(argc<7){
+        std::cerr << "Usage: " << argv[0] << " <fci-ip> carte_pose carte_quat carte_w K fileOut" << std::endl;
         return -1;
     }
     // Read what we need
     std::string carte_pose_file(argv[2]);
     std::string carte_quat_file(argv[3]);
-    std::string carte_wren_file(argv[4]);
+    std::string carte_w_file(argv[4]);
+    std::string K_file(argv[5]);
     std::vector<std::vector<double>> carte_pose = readCSV(carte_pose_file); // N x 3
     std::vector<std::vector<double>> carte_quat = readCSV(carte_quat_file); // N x 4
-    std::vector<std::vector<double>> carte_wren = readCSV(carte_wren_file); // N x 6
+    std::vector<std::vector<double>> carte_w = readCSV(carte_w_file);       // N x 6
+    std::vector<std::vector<double>> Ks = readCSV(K_file);                  // N x 6
     unsigned int N = carte_pose.size();
     // Prepare the output
-    std::string pose_out_file(argv[5]);
+    std::string pose_out_file(argv[6]);
     std::ofstream pose_out(pose_out_file.append(".csv"),std::ios::out);
     // Stiffness and damping
-    double stiffness = 0.0;
-    double damping = 0.0;
+    double stiffness = 30;
+    double damping = 20;
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
         << N << " data are read." << std::endl
@@ -51,23 +54,28 @@ int main(int argc, char** argv){
     std::cin.ignore();
     // Init. robot
     franka::Robot robot(argv[1]);
-    // Set default param
-    robot.setCollisionBehavior(
-            {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
-            {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
-            {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}},
-            {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}});
     franka::Model model = robot.loadModel();
     std::cout << "Robot is ready to move!" << std::endl;
+    // Set default param
+    std::cout << "Pre-assembly phase" << std::endl;
+    // Note that it is assumed no collision occurrs during this phase
+    robot.setCollisionBehavior(
+            {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}}, {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}},
+            {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
+            {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}},
+            {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}});
     unsigned int counter = 0;   // file line counter
     try
     {
         // Impedance control param. initialization
         Eigen::Matrix<double,6,6> K; // Stiffness
         Eigen::Matrix<double,6,6> D; // Damping
+        K = vectorK2Matrix6(Ks[counter]);
+        /*
         K.setZero();
         K.topLeftCorner(3,3) << stiffness * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
         K.bottomRightCorner(3,3) << std::sqrt(stiffness) * Eigen::MatrixXd::Identity(3,3); // quat stiffness
+        */
         D.setZero();
         D.topLeftCorner(3,3) << damping * Eigen::MatrixXd::Identity(3,3);   // x y z damping
         D.bottomRightCorner(3,3) << std::sqrt(damping) * Eigen::MatrixXd::Identity(3,3);    // quat damping
@@ -81,8 +89,6 @@ int main(int argc, char** argv){
         unsigned int fps_counter = 0;
         unsigned int log_counter = 0;
         double time = 0.0;
-        double alpha = 0.0;
-        double alp_counter = 0.0;
         // Start robot controller
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::Torques{
@@ -101,7 +107,7 @@ int main(int argc, char** argv){
                 Eigen::Quaterniond curr_quat(curr_trans.linear());                              // Current quaternion
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_dq(state.dq.data());           // Current joint vel.
                 // The goals
-                if(fps_counter >= 2-1*alpha)
+                if(fps_counter >= 5)
                 {
                     for (unsigned int i = 0; i < 3; i++)
                     {
@@ -112,10 +118,9 @@ int main(int argc, char** argv){
                     goal_quat.x() = carte_quat[counter][1];
                     goal_quat.y() = carte_quat[counter][2];
                     goal_quat.z() = carte_quat[counter][3];
+                    K = vectorK2Matrix6(Ks[counter]);
                     counter++;
                     fps_counter = 0;
-                    alp_counter += 1.0;
-                    alpha = alp_counter/N;
                 }
                 fps_counter++;
                 // Error
@@ -124,33 +129,35 @@ int main(int argc, char** argv){
                 // Position error
                 error_pose.head(3) << goal_posi - curr_posi;
                 // Orientation error
-                // Double cover issue
-                if (goal_quat.coeffs().dot(curr_quat.coeffs()) < 0.0)
-                {
-                    curr_quat.coeffs() = -curr_quat.coeffs();
-                }
-                // Quaternion difference
-                Eigen::Quaterniond error_quat(goal_quat.conjugate()*curr_quat);
-                error_pose.tail(3) << error_quat.x(),error_quat.y(),error_quat.z();
-                error_pose.tail(3) << -curr_trans.linear() * error_pose.tail(3);
+                error_pose.tail(3) << quatSubtraction(goal_quat,curr_quat);
                 // Control law
                 // Impedance control signal
                 Eigen::VectorXd tau_act(7);
                 //alpha = 1.0 + alp_counter/N;
-                tau_act << jacobin.transpose() * (K * error_pose - D * (jacobin * curr_dq)) + coriolis;
+                tau_act << jacobin.transpose() * (K * error_pose - D * (jacobin * curr_dq) ) + coriolis;
                 std::array<double,7> tau_act_array{};
                 Eigen::VectorXd::Map(&tau_act_array[0],7) = tau_act;
                 franka::Torques tau_c(tau_act_array);
                 // Write the tau_act_array for test
                 if(log_counter >= 100)
                 {
+                    /* the current tau command
                     for (short int i = 0; i < 7; i++)
                     {
                         pose_out << tau_act_array[i] << ',';
                     }
+                    for (short int i = 0; i < 6; i++)
+                    {
+                        pose_out << error_pose(i,0) << ',';
+                    }
+                    */
                     for (short int i = 0; i < 16; i++)
                     {
                         pose_out << state.O_T_EE[i] << ',';
+                    }
+                    for (short int i = 0; i < 6; i++)
+                    {
+                        pose_out << state.O_F_ext_hat_K[i] << ',';
                     }
                     pose_out << std::endl;
                     log_counter = 0;
@@ -159,47 +166,17 @@ int main(int argc, char** argv){
                 // Terminal condition
                 if (counter > N-1)
                 {
-                    tau_c.tau_J = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
-                    return franka::MotionFinished(tau_c);
+                    counter = N-1;
+                    if(fps_counter >= 5-1)
+                    {
+                        // Final control loop is done
+                        tau_c.tau_J = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
+                        return franka::MotionFinished(tau_c);
+                    }
                 }
                 return tau_c;
             }
         );
-        
-        robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
-        robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
-        time = 0.0;
-        std::array<double,16> goal_pose;
-        std::array<double,16> init_pose;
-        std::vector<std::vector<double>> dummy_pose = readCSV("Data/ret01_dummy");
-        for (unsigned int i = 0; i < 16; i++)
-        {
-            goal_pose[i] = dummy_pose[0][i];
-        }
-        robot.control(
-            [&init_pose,&goal_pose,&time](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
-                // Cartesian motion plan
-                time += period.toSec();
-                if (time == 0.0)
-                {
-                    // Initial pose is the current one
-                    init_pose = state.O_T_EE;
-                    goal_pose[14] += 0.0005;
-                }
-                franka::CartesianPose cmd_pose(init_pose);
-                for (unsigned int i = 12; i < 15; i++)
-                {
-                    // Interpolation
-                    cmd_pose.O_T_EE[i] = cosInterp(init_pose[i],goal_pose[i],time*0.1);
-                }
-                if (time*0.1 >= 1.0)
-                {
-                    return franka::MotionFinished(cmd_pose);
-                }
-                return cmd_pose;
-            }
-        );
-        
     }
     catch(const franka::Exception& e)
     {
@@ -208,6 +185,7 @@ int main(int argc, char** argv){
         std::cout << "counter: " << counter << std::endl;
         return -1;
     }
+    std::cout << "Finished pre-assembly phase, counter = " << counter << std::endl;
     pose_out.close();
     return 0;
 }

@@ -1,13 +1,13 @@
 //FW_pre_torque3
 //  Aggressive and fast impedance controller for pre-assembly phase
 //  We assume that you HAVE moved the robot to the inital pose.
-//  Only orientation is controlled
+//  There is a joint space compensation after the torque control loop
 //
 //  Haopeng Hu
-//  2020.07.27
+//  2020.08.12
 //  All rights reserved
 //
-//  Usage: argv[0] <fci-ip> fileIn1 fileIn2 fileIn3 fileOut
+//  Usage: argv[0] <fci-ip> fileIn1 fileIn2 fileIn3 fileIn4 fileOut
 
 #include <iostream>
 #include <string>
@@ -26,20 +26,22 @@
 #include "MILK/MILK.h"
 
 int main(int argc, char** argv){
-    if(argc<6){
-        std::cerr << "Usage: " << argv[0] << " <fci-ip> fileIn1 fileIn2 fileIn3 fileOut" << std::endl;
+    if(argc<7){
+        std::cerr << "Usage: " << argv[0] << " <fci-ip> carte_pose carte_quat K finaJP fileOut" << std::endl;
         return -1;
     }
     // Read what we need
     std::string carte_pose_file(argv[2]);
     std::string carte_quat_file(argv[3]);
     std::string K_file(argv[4]);
+    std::string final_JP_file(argv[5]);
     std::vector<std::vector<double>> carte_pose = readCSV(carte_pose_file); // N x 3
     std::vector<std::vector<double>> carte_quat = readCSV(carte_quat_file); // N x 4
     std::vector<std::vector<double>> Ks = readCSV(K_file);                  // N x 6
+    std::vector<std::vector<double>> finalJP = readCSV(final_JP_file);      // 1 x 7
     unsigned int N = carte_pose.size();
     // Prepare the output
-    std::string pose_out_file(argv[5]);
+    std::string pose_out_file(argv[6]);
     std::ofstream pose_out(pose_out_file.append(".csv"),std::ios::out);
     // Stiffness and damping
     double stiffness = 30;
@@ -54,15 +56,13 @@ int main(int argc, char** argv){
     franka::Robot robot(argv[1]);
     franka::Model model = robot.loadModel();
     std::cout << "Robot is ready to move!" << std::endl;
-    // Pre-assembly phase
-    /*
-    */
     // Set default param
     std::cout << "Pre-assembly phase" << std::endl;
+    // Note that it is assumed no collision occurrs during this phase
     robot.setCollisionBehavior(
+            {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}}, {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}},
             {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
-            {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
-            {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}},
+            {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}},
             {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}});
     unsigned int counter = 0;   // file line counter
     try
@@ -127,20 +127,9 @@ int main(int argc, char** argv){
                 Eigen::Matrix<double,6,1> error_pose;
                 error_pose.setZero();
                 // Position error
-                //error_pose.head(3) << goal_posi - curr_posi;
+                error_pose.head(3) << goal_posi - curr_posi;
                 // Orientation error
                 error_pose.tail(3) << quatSubtraction(goal_quat,curr_quat);
-                /*
-                // Double cover issue
-                if (goal_quat.coeffs().dot(curr_quat.coeffs()) < 0.0)
-                {
-                    curr_quat.coeffs() = -curr_quat.coeffs();
-                }
-                // Quaternion difference
-                Eigen::Quaterniond error_quat(curr_quat.conjugate()*goal_quat);
-                error_pose.tail(3) << error_quat.x(),error_quat.y(),error_quat.z();
-                error_pose.tail(3) << -curr_trans.linear() * error_pose.tail(3);
-                */
                 // Control law
                 // Impedance control signal
                 Eigen::VectorXd tau_act(7);
@@ -157,7 +146,7 @@ int main(int argc, char** argv){
                     {
                         pose_out << tau_act_array[i] << ',';
                     }
-                    */
+                    
                     for (short int i = 0; i < 6; i++)
                     {
                         pose_out << error_pose(i,0) << ',';
@@ -168,6 +157,7 @@ int main(int argc, char** argv){
                         pose_out << state.O_T_EE[i] << ',';
                     }
                     pose_out << std::endl;
+                    */
                     log_counter = 0;
                 }
                 log_counter++;
@@ -175,50 +165,47 @@ int main(int argc, char** argv){
                 if (counter > N-1)
                 {
                     counter = N-1;
-                    //tau_c.tau_J = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
-                    //return franka::MotionFinished(tau_c);
+                    if(fps_counter >= 5-1)
+                    {
+                        // Final control loop is done
+                        tau_c.tau_J = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
+                        return franka::MotionFinished(tau_c);
+                    }
                 }
                 return tau_c;
             }
         );
-        /*
+        // Joint motion compensation
         robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
         robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
         time = 0.0;
-        std::array<double,16> goal_pose;
-        std::array<double,16> init_pose;
-        for (unsigned int i = 0; i < 12; i++)
-        {
-            goal_pose[i] = 0.0;
-        }
-        goal_pose[12] = carte_pose[N-1][0];
-        goal_pose[13] = carte_pose[N-1][1];
-        goal_pose[14] = carte_pose[N-1][2];
-        goal_pose[15] = 1.0;
+        std::array<double,7> goal_q = vector2array7(finalJP[0]);
+        std::array<double,7> init_q;
+        std::array<double,7> curr_q;
         robot.control(
-            [&init_pose,&goal_pose,&time](const franka::RobotState& state, franka::Duration period) -> franka::CartesianPose{
-                // Cartesian motion plan
-                time += period.toSec();
-                if (time == 0.0)
+            [&](const franka::RobotState& state, franka::Duration period) -> franka::JointPositions{
+            // Joint motion with given goal joint position
+            time += period.toSec();
+            if(time == 0.0)
+            {
+                // The init goal must be the current q.
+                init_q = state.q;
+                curr_q = state.q_d;
+            }else
+            {
+                // S-spline interpolation
+                for(unsigned int i = 0; i < 7; i++)
                 {
-                    // Initial pose is the current one
-                    init_pose = state.O_T_EE;
-                    goal_pose[14] += 0.01;
+                    curr_q[i] = cosInterp(init_q[i],goal_q[i],time);
                 }
-                franka::CartesianPose cmd_pose(init_pose);
-                for (unsigned int i = 12; i < 15; i++)
-                {
-                    // Interpolation
-                    cmd_pose.O_T_EE[i] = cosInterp(init_pose[i],goal_pose[i],time);
-                }
-                if (time >= 1.0)
-                {
-                    return franka::MotionFinished(cmd_pose);
-                }
-                return cmd_pose;
             }
-        );
-        */
+            franka::JointPositions q_c = curr_q;
+            if(time >= 1)
+            {
+                return franka::MotionFinished(q_c);
+            }
+            return q_c;
+        });
     }
     catch(const franka::Exception& e)
     {
@@ -228,16 +215,6 @@ int main(int argc, char** argv){
         return -1;
     }
     std::cout << "Finished pre-assembly phase, counter = " << counter << std::endl;
-    // Cis-assembly phase
-    /*
-    // Set default param
-    std::cout << "Cis-assembly phase" << std::endl;
-    robot.setCollisionBehavior(
-            {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
-            {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
-            {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}},
-            {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}});
-    */
     pose_out.close();
     return 0;
 }
