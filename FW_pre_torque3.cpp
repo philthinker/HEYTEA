@@ -27,18 +27,18 @@
 
 int main(int argc, char** argv){
     if(argc<7){
-        std::cerr << "Usage: " << argv[0] << " <fci-ip> carte_pose carte_quat K finaJP fileOut" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <fci-ip> carte_pose carte_quat K JP fileOut" << std::endl;
         return -1;
     }
     // Read what we need
     std::string carte_pose_file(argv[2]);
     std::string carte_quat_file(argv[3]);
     std::string K_file(argv[4]);
-    std::string final_JP_file(argv[5]);
+    std::string JP_file(argv[5]);
     std::vector<std::vector<double>> carte_pose = readCSV(carte_pose_file); // N x 3
     std::vector<std::vector<double>> carte_quat = readCSV(carte_quat_file); // N x 4
     std::vector<std::vector<double>> Ks = readCSV(K_file);                  // N x 6
-    std::vector<std::vector<double>> finalJP = readCSV(final_JP_file);      // 1 x 7
+    std::vector<std::vector<double>> JP = readCSV(JP_file);                 // 2 x 7
     unsigned int N = carte_pose.size();
     // Prepare the output
     std::string pose_out_file(argv[6]);
@@ -179,7 +179,7 @@ int main(int argc, char** argv){
         robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
         robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
         time = 0.0;
-        std::array<double,7> goal_q = vector2array7(finalJP[0]);
+        std::array<double,7> goal_q = vector2array7(JP[1]);
         std::array<double,7> init_q;
         std::array<double,7> curr_q;
         robot.control(
