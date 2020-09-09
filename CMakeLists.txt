@@ -31,12 +31,13 @@ set(EigenDRINKS
     #FleshWaxberry_pre_torque_p
     #FW_pre_torque
     #FW_pre_carte
-    FW_cis_torque
-    FW_pre_torque2
-    FW_pre_torque3
+    #FW_cis_torque
+    #FW_pre_torque2
+    #FW_pre_torque3
     #FleshWaxberry_OneshotCarte
     #FleshWaxberry_slerp
     FW_testBench
+    FW_pre_final
 )
 
 set(TESTS
