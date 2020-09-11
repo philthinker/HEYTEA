@@ -38,6 +38,7 @@ set(EigenDRINKS
     #FleshWaxberry_slerp
     FW_testBench
     FW_pre_final
+    FW_cis_final
 )
 
 set(TESTS

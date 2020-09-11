@@ -1,10 +1,10 @@
-//FW_pre_final
-//  Aggressive and fast impedance controller for pre-assembly phase
+//FW_cis_final
+//  Aggressive and fast impedance controller for cis-assembly phase
 //  We assume that you HAVE moved the robot to the inital pose.
 //  There is a joint space compensation after the torque control loop
 //
 //  Haopeng Hu
-//  2020.09.09
+//  2020.09.10
 //  All rights reserved
 //
 //  Usage: argv[0] <fci-ip> fileIn1 fileIn2 fileIn3 fileIn4 fileOut
@@ -26,8 +26,8 @@
 #include "MILK/MILK.h"
 
 int main(int argc, char** argv){
-    if(argc<7){
-        std::cerr << "Usage: " << argv[0] << " <fci-ip> carte_pose carte_quat K JP fileOutName" << std::endl;
+    if(argc<4){
+        std::cerr << "Usage: " << argv[0] << " <fci-ip> JP fileOutName" << std::endl;
         // carte_pose: N x 3
         // carte_quat: N x 4
         // K: N x 6 >= 0
@@ -35,15 +35,8 @@ int main(int argc, char** argv){
         return -1;
     }
     // Read what we need
-    std::string carte_pose_file(argv[2]);
-    std::string carte_quat_file(argv[3]);
-    std::string K_file(argv[4]);
-    std::string JP_file(argv[5]);
-    std::vector<std::vector<double>> carte_pose = readCSV(carte_pose_file); // N x 3
-    std::vector<std::vector<double>> carte_quat = readCSV(carte_quat_file); // N x 4
-    std::vector<std::vector<double>> Ks = readCSV(K_file);                  // N x 6
-    std::vector<std::vector<double>> JP = readCSV(JP_file);                 // 2 x 7
-    unsigned int N = carte_pose.size();
+    std::string JP_file(argv[2]);
+    std::vector<std::vector<double>> JP = readCSV(JP_file);
     // Prepare the output
     std::string pose_out_file(argv[6]);
     std::ofstream pose_out(pose_out_file.append(".csv"),std::ios::out);
@@ -52,7 +45,6 @@ int main(int argc, char** argv){
     double damping = 20;
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
-        << N << " data are read." << std::endl
         << "Log data will be stored in file: " << pose_out_file << std::endl
         << "Press Enter to continue. Good Luck!" << std::endl;
     std::cin.ignore();
@@ -61,7 +53,7 @@ int main(int argc, char** argv){
     franka::Model model = robot.loadModel();
     std::cout << "Robot is ready to move!" << std::endl;
     // Set default param
-    std::cout << "Pre-assembly phase" << std::endl;
+    std::cout << "Cis-assembly phase" << std::endl;
     // Note that it is assumed no collision occurrs during this phase
     robot.setCollisionBehavior(
             {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}}, {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}},
@@ -74,12 +66,9 @@ int main(int argc, char** argv){
         // Impedance control param. initialization
         Eigen::Matrix<double,6,6> K; // Stiffness
         Eigen::Matrix<double,6,6> D; // Damping
-        K = vectorK2Matrix6(Ks[counter]);
-        /*
         K.setZero();
         K.topLeftCorner(3,3) << stiffness * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
         K.bottomRightCorner(3,3) << std::sqrt(stiffness) * Eigen::MatrixXd::Identity(3,3); // quat stiffness
-        */
         D.setZero();
         D.topLeftCorner(3,3) << damping * Eigen::MatrixXd::Identity(3,3);   // x y z damping
         D.bottomRightCorner(3,3) << std::sqrt(damping) * Eigen::MatrixXd::Identity(3,3);    // quat damping
