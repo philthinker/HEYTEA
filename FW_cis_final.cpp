@@ -38,11 +38,11 @@ int main(int argc, char** argv){
     std::string JP_file(argv[2]);
     std::vector<std::vector<double>> JP = readCSV(JP_file);
     // Prepare the output
-    std::string pose_out_file(argv[6]);
+    std::string pose_out_file(argv[3]);
     std::ofstream pose_out(pose_out_file.append(".csv"),std::ios::out);
     // Stiffness and damping
-    double stiffness = 30;
-    double damping = 20;
+    double stiffness = 2000;
+    double damping = 100;
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
         << "Log data will be stored in file: " << pose_out_file << std::endl
@@ -62,21 +62,21 @@ int main(int argc, char** argv){
             {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}}, {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}},
             {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
             {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}},
-            {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}});
+            {{15.0, 15.0, 20.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 20.0, 15.0, 15.0, 15.0}});
     // Init. task
     /*
     Just moving downward with low stiffness in x-y plane
     */
     unsigned int dat_counter = 0;   // file line counter
-    double total_length = 0.005;    // 5mm
-    double d_length = 0.001;        // 1mm
+    double total_length = 0.020;    // 20mm
+    double d_length = 0.001;        // 2mm
     double N = std::floor(total_length/d_length);
     // Impedance control param. initialization
     Eigen::Matrix<double,6,6> K; // Stiffness
     Eigen::Matrix<double,6,6> D; // Damping
     K.setZero();
     K.topLeftCorner(3,3) << stiffness * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
-    K.topLeftCorner(2,2) << std::sqrt(stiffness) * Eigen::MatrixXd::Identity(2,2);  // x y stiffness
+    K.topLeftCorner(2,2) << std::sqrt(stiffness/2) * Eigen::MatrixXd::Identity(2,2);  // x y stiffness
     K.bottomRightCorner(3,3) << std::sqrt(stiffness) * Eigen::MatrixXd::Identity(3,3); // quat stiffness
     D.setZero();
     D.topLeftCorner(3,3) << damping * Eigen::MatrixXd::Identity(3,3);   // x y z damping
@@ -109,7 +109,7 @@ int main(int argc, char** argv){
                 Eigen::Quaterniond curr_quat(curr_trans.linear());                              // Current quaternion
                 Eigen::Map<const Eigen::Matrix<double,7,1>> curr_dq(state.dq.data());           // Current joint vel.
                 // The goals
-                if(fps_counter >= 5)
+                if(fps_counter >= 100)
                 {
                     goal_posi[2] -= d_length; // Move downward
                     dat_counter++;
@@ -149,8 +149,14 @@ int main(int argc, char** argv){
             }
         );
         // Joint motion compensation
+        
         robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
         robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
+        robot.setCollisionBehavior(
+            {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}}, {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}},
+            {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
+            {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}},
+            {{15.0, 15.0, 30.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 30.0, 15.0, 15.0, 15.0}});
         double time = 0.0;
         std::array<double,7> goal_q = vector2array7(JP[1]);
         std::array<double,7> init_q;
@@ -180,6 +186,7 @@ int main(int argc, char** argv){
             }
             return q_c;
         });
+        
     }
     catch(const franka::Exception& e)
     {
