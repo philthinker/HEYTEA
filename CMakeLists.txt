@@ -39,6 +39,7 @@ set(EigenDRINKS
     FW_testBench
     FW_pre_final
     FW_cis_final
+    FW_final
 )
 
 set(TESTS

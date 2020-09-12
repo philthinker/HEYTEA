@@ -57,7 +57,6 @@ int main(int argc, char** argv){
     std::cout << "Robot is ready to move!" << std::endl;
     // Set default param
     std::cout << "Cis-assembly phase" << std::endl;
-    // Note that it is assumed no collision occurrs during this phase
     robot.setCollisionBehavior(
             {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}}, {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}},
             {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
@@ -67,7 +66,7 @@ int main(int argc, char** argv){
     /*
     Just moving downward with low stiffness in x-y plane
     */
-    unsigned int dat_counter = 0;   // file line counter
+    unsigned int dat_counter = 0;   // step counter
     double total_length = 0.020;    // 20mm
     double d_length = 0.001;        // 2mm
     double N = std::floor(total_length/d_length);
@@ -149,7 +148,6 @@ int main(int argc, char** argv){
             }
         );
         // Joint motion compensation
-        
         robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
         robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
         robot.setCollisionBehavior(
@@ -186,7 +184,6 @@ int main(int argc, char** argv){
             }
             return q_c;
         });
-        
     }
     catch(const franka::Exception& e)
     {
