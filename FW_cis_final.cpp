@@ -49,6 +49,9 @@ int main(int argc, char** argv){
         << "Press Enter to continue. Good Luck!" << std::endl;
     std::cin.ignore();
     // Init. robot
+    /*
+    Init. Robot, Model, Default parameter
+    */
     franka::Robot robot(argv[1]);
     franka::Model model = robot.loadModel();
     std::cout << "Robot is ready to move!" << std::endl;
@@ -60,28 +63,34 @@ int main(int argc, char** argv){
             {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
             {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}},
             {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 15.0, 15.0, 15.0, 15.0}});
-    unsigned int counter = 0;   // file line counter
+    // Init. task
+    /*
+    Just moving downward with low stiffness in x-y plane
+    */
+    unsigned int dat_counter = 0;   // file line counter
+    double total_length = 0.005;    // 5mm
+    double d_length = 0.001;        // 1mm
+    double N = std::floor(total_length/d_length);
+    // Impedance control param. initialization
+    Eigen::Matrix<double,6,6> K; // Stiffness
+    Eigen::Matrix<double,6,6> D; // Damping
+    K.setZero();
+    K.topLeftCorner(3,3) << stiffness * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
+    K.topLeftCorner(2,2) << std::sqrt(stiffness) * Eigen::MatrixXd::Identity(2,2);  // x y stiffness
+    K.bottomRightCorner(3,3) << std::sqrt(stiffness) * Eigen::MatrixXd::Identity(3,3); // quat stiffness
+    D.setZero();
+    D.topLeftCorner(3,3) << damping * Eigen::MatrixXd::Identity(3,3);   // x y z damping
+    D.bottomRightCorner(3,3) << std::sqrt(damping) * Eigen::MatrixXd::Identity(3,3);    // quat damping
     try
     {
-        // Impedance control param. initialization
-        Eigen::Matrix<double,6,6> K; // Stiffness
-        Eigen::Matrix<double,6,6> D; // Damping
-        K.setZero();
-        K.topLeftCorner(3,3) << stiffness * Eigen::MatrixXd::Identity(3,3);   // x y z stiffness
-        K.bottomRightCorner(3,3) << std::sqrt(stiffness) * Eigen::MatrixXd::Identity(3,3); // quat stiffness
-        D.setZero();
-        D.topLeftCorner(3,3) << damping * Eigen::MatrixXd::Identity(3,3);   // x y z damping
-        D.bottomRightCorner(3,3) << std::sqrt(damping) * Eigen::MatrixXd::Identity(3,3);    // quat damping
         // Init. the goals with current state for safety
         franka::RobotState curr_state = robot.readOnce();
         Eigen::Affine3d goal_trans(Eigen::Matrix4d::Map(curr_state.O_T_EE.data()));
         Eigen::Vector3d goal_posi(goal_trans.translation());
         Eigen::Quaterniond goal_quat(goal_trans.linear());
         // Init. the intermediate vaiable here
-        //unsigned int counter = 0;
         unsigned int fps_counter = 0;
         unsigned int log_counter = 0;
-        double time = 0.0;
         // Start robot controller
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::Torques{
@@ -102,17 +111,8 @@ int main(int argc, char** argv){
                 // The goals
                 if(fps_counter >= 5)
                 {
-                    for (unsigned int i = 0; i < 3; i++)
-                    {
-                        goal_posi[i] = carte_pose[counter][i];
-                    }
-                    // Note that Eigen::Quaternion::coeffs is (x,y,z,w)
-                    goal_quat.w() = carte_quat[counter][0];
-                    goal_quat.x() = carte_quat[counter][1];
-                    goal_quat.y() = carte_quat[counter][2];
-                    goal_quat.z() = carte_quat[counter][3];
-                    K = vectorK2Matrix6(Ks[counter]);
-                    counter++;
+                    goal_posi[2] -= d_length; // Move downward
+                    dat_counter++;
                     fps_counter = 0;
                 }
                 fps_counter++;
@@ -138,9 +138,9 @@ int main(int argc, char** argv){
                 }
                 log_counter++;
                 // Terminal condition
-                if (counter > N-1)
+                if (dat_counter > N-1)
                 {
-                    counter = N-1;
+                    dat_counter = N-1;
                         // Final control loop is done
                         tau_c.tau_J = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
                         return franka::MotionFinished(tau_c);
@@ -151,7 +151,7 @@ int main(int argc, char** argv){
         // Joint motion compensation
         robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
         robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
-        time = 0.0;
+        double time = 0.0;
         std::array<double,7> goal_q = vector2array7(JP[1]);
         std::array<double,7> init_q;
         std::array<double,7> curr_q;
@@ -185,10 +185,10 @@ int main(int argc, char** argv){
     {
         std::cerr << e.what() << '\n';
         pose_out.close();
-        std::cout << "counter: " << counter << std::endl;
+        std::cout << "counter: " << dat_counter << std::endl;
         return -1;
     }
-    std::cout << "Finished pre-assembly phase, counter = " << counter << std::endl;
+    std::cout << "Finished cis-assembly phase, counter = " << dat_counter << std::endl;
     pose_out.close();
     return 0;
 }
