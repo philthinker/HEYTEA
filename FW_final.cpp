@@ -48,7 +48,7 @@ int main(int argc, char** argv){
     std::vector<std::vector<double>> JP_cis = readCSV(JP_cis_file);         // 2 x 7
     unsigned int N = carte_pose.size();
     // Prepare the output
-    std::string log_out_file(argv[6]);
+    std::string log_out_file(argv[7]);
     std::ofstream log_out(log_out_file.append(".csv"),std::ios::out);
     // Stiffness and damping
     double stiffness = 30;
@@ -212,9 +212,9 @@ int main(int argc, char** argv){
         D.bottomRightCorner(3,3) << std::sqrt(damping) * Eigen::MatrixXd::Identity(3,3);    // quat damping
         // Init. the goals with current state for safety
         curr_state = robot.readOnce();
-        goal_trans(Eigen::Matrix4d::Map(curr_state.O_T_EE.data()));
-        goal_posi(goal_trans.translation());
-        goal_quat(goal_trans.linear());
+        goal_trans = Eigen::Matrix4d::Map(curr_state.O_T_EE.data());
+        goal_posi = goal_trans.translation();
+        goal_quat = goal_trans.linear();
         // Init. the intermediate vaiable here
         fps_counter = 0;
         log_counter = 0;
@@ -239,7 +239,7 @@ int main(int argc, char** argv){
                 if(fps_counter >= 100)
                 {
                     goal_posi[2] -= d_length; // Move downward
-                    dat_counter++;
+                    counter++;
                     fps_counter = 0;
                 }
                 fps_counter++;
@@ -265,9 +265,9 @@ int main(int argc, char** argv){
                 }
                 log_counter++;
                 // Terminal condition
-                if (dat_counter > N-1)
+                if (counter > N-1)
                 {
-                    dat_counter = N-1;
+                    counter = N-1;
                         // Final control loop is done
                         tau_c.tau_J = {{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
                         return franka::MotionFinished(tau_c);
@@ -275,16 +275,17 @@ int main(int argc, char** argv){
                 return tau_c;
             }
         );
-        // Joint motion compensation
+        // Joint motion compensation for cis-assembly phase
+
+        robot.setCartesianImpedance({{3000,3000,3000,300,300,300}});
+        robot.setJointImpedance({{3000, 3000, 3000, 2500, 2500, 2000, 2000}});
         robot.setCollisionBehavior(
             {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}}, {{15.0, 15.0, 12.0, 10.0, 8.0, 8.0, 8.0}},
             {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}}, {{20.0, 20.0, 18.0, 15.0, 10.0, 10.0, 10.0}},
             {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}}, {{10.0, 10.0, 10.0, 10.0, 10.0, 10.0}},
-            {{15.0, 15.0, 30.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 30.0, 15.0, 15.0, 15.0}});
+            {{15.0, 15.0, 40.0, 15.0, 15.0, 15.0}}, {{15.0, 15.0, 40.0, 15.0, 15.0, 15.0}});
         time = 0.0;
-        goal_q = vector2array7(JP[1]);
-        std::array<double,7> init_q;
-        std::array<double,7> curr_q;
+        goal_q = vector2array7(JP_cis[1]);
         std::cout << "Joint position compensation" << std::endl;
         robot.control(
             [&](const franka::RobotState& state, franka::Duration period) -> franka::JointPositions{
