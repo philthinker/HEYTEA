@@ -6,6 +6,13 @@ Haopeng Hu
 
 All rights reserved
 
+## Macro command
+
+- Blueberry_lead: Lead the robot by the pilot to demonstrate something.
+- Blueberry_JP: Oneshot motion to the given joint position.
+
+## Main command
+
 
 
 *Do you remember your trip to Changbai mountain?*
