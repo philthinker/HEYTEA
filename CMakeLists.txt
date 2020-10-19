@@ -28,6 +28,7 @@ set(EigenDRINKS
     #FW_final
     Blueberry_JP
     Blueberry_Posi
+    Blueberry_PCBA
 )
 
 set(TESTS
