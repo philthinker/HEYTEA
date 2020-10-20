@@ -22,24 +22,31 @@
 #include "MILK/MILK.h"
 
 int main(int argc, char** argv){
-    if (argc < 5)
+    if (argc < 6)
     {
-        std::cerr << "Usage: " << argv[0] <<" <fci-ip> fileInName fps fileOutName" << std::endl;
+        std::cerr << "Usage: " << argv[0] <<" <fci-ip> appPosiFile preJPFile fps fileOutName" << std::endl;
         return -1;
     }
     // Destination
     std::array<double,3> posi_goal;
-    std::string fileInName(argv[2]);
-    std::vector<std::vector<double>> dataIn = readCSV(fileInName);
+    std::array<double,7> pre_JP;
+    std::string appPosiFile(argv[2]);
+    std::string preJPFile(argv[3]);
+    std::vector<std::vector<double>> dataIn = readCSV(appPosiFile);
+    std::vector<std::vector<double>> preJPIn = readCSV(preJPFile);
     unsigned int N = dataIn.size(); // Num. of route points
     for (unsigned int i = 0; i < 3; i++)
     {
         posi_goal[i] = dataIn[0][i];    // Initial position
     }
+    for (unsigned int i = 0; i < 7; i++)
+    {
+        pre_JP[i] = preJPIn[0][i];
+    }
     // fps [1,100]
-    unsigned int fps = std::floor(getDataFromInput(argv[3],1,100));
+    unsigned int fps = std::floor(getDataFromInput(argv[4],1,100));
     // File out
-    std::string fileOutName(argv[4]);
+    std::string fileOutName(argv[5]);
     std::ofstream fileOut(fileOutName.append(".csv"),std::ios::out);
     // Ready
     std::cout << "Keep the user stop at hand!" << std::endl
@@ -62,8 +69,11 @@ int main(int argc, char** argv){
             {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
             {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}},
             {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}});
-    // Cartesian pose motion
     try{
+        /**
+         * @CartesianPose motion generation
+         * No orientation motion
+         */
         // Intermediate variables
         double timer = 0.0;
         std::array<double,16> carte_init;
@@ -113,6 +123,84 @@ int main(int argc, char** argv){
                 });
             std::cout << "Position: " << n << " finished." << std::endl;
         }
+    /**
+     * @Pre-Assembly pose compensation
+     * JointPose motion generation
+     */
+    std::cout << "Pre-assembly JP compensation ..." << std::endl;
+    timer = 0.0;
+    franka::JointPositions JP_c(pre_JP);
+    franka::JointPositions JP_init(pre_JP);
+    robot.control([&timer,&pre_JP,&JP_c,&JP_init,fps,&fpsCounter,&fileOut](const franka::RobotState& state,franka::Duration period)
+    -> franka::JointPositions{
+        // S-Spline joint motion generation
+        timer += period.toMSec();
+        if (timer == 0.0)
+        {
+            JP_init.q = state.q_d;
+        }
+        for (unsigned int i = 0; i < 7; i++)
+        {
+            JP_c.q[i] = cosInterp(JP_init.q[i],pre_JP[i],timer);
+        }
+        // Log
+        if (fpsCounter >= 1000/fps)
+        {
+            fpsCounter = 1;
+            for (unsigned int i = 0; i < 16; i++)
+            {
+                fileOut << state.O_T_EE[i] << ',';
+            }
+            fileOut << std::endl;
+        }else
+        {
+            fpsCounter++;
+        }
+        // Terminal condition
+        if (timer >= 1.0)
+        {
+            return franka::MotionFinished(JP_c);
+        }
+        return JP_c;
+    });
+    std::cout << "Pre-assembly joint motion finished" << std::endl;
+    /**
+     * @Assembling phase: CartesianPose motion generation
+     * No orientation motion
+     */
+    double pcbDepth = 0.005;
+    timer = 0.0;
+    robot.control([&timer,&carte_init,pcbDepth,fps,&fpsCounter,&fileOut](const franka::RobotState& state,franka::Duration period)
+    -> franka::CartesianPose{
+        // S-Spline Cartesian motion generation
+        timer += period.toSec();
+        if (timer == 0.0)
+        {
+            carte_init = state.O_T_EE_d;
+        }
+        franka::CartesianPose carte_c(carte_init);
+        carte_c.O_T_EE[14] = cosInterp(carte_init[14],carte_init[14]+pcbDepth,timer);
+        // Log
+        if (fpsCounter >= 1000/fps)
+        {
+            fpsCounter = 1;
+            for (unsigned int i = 0; i < 16; i++)
+            {
+                fileOut << state.O_T_EE[i] << ',';
+            }
+            fileOut << std::endl;
+        }else
+        {
+            fpsCounter++;
+        }
+        // Terminal condition
+        if (timer >= 1.0)
+        {
+            return franka::MotionFinished(carte_c);
+        }
+        return carte_c;
+    });
+    std::cout << "Assembling phase finished" << std::endl;
     }
     catch(const franka::Exception& e){
         std::cerr << e.what() <<'\n';
