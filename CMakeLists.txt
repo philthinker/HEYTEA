@@ -29,6 +29,7 @@ set(EigenDRINKS
     Blueberry_JP
     Blueberry_Posi
     Blueberry_PCBA
+    Blueberry_PCBA_ass
 )
 
 set(TESTS

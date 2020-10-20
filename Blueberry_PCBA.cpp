@@ -78,6 +78,7 @@ int main(int argc, char** argv){
         double timer = 0.0;
         std::array<double,16> carte_init;
         unsigned int fpsCounter = 1;
+        double scaler = 1.25;
         for (unsigned int n = 0; n < N; n++)
         {
             // Carteisn pose motion plan
@@ -88,7 +89,7 @@ int main(int argc, char** argv){
             {
                 posi_goal[i] = dataIn[n][i];
             }
-            robot.control([&timer,&carte_init,posi_goal,fps,&fpsCounter,&fileOut](const franka::RobotState& state, franka::Duration period)
+            robot.control([&timer,&carte_init,posi_goal,fps,&fpsCounter,&fileOut,scaler](const franka::RobotState& state, franka::Duration period)
                 -> franka::CartesianPose{
                     // S-Spline Cartesian position interpolation
                     timer += period.toSec();
@@ -99,7 +100,7 @@ int main(int argc, char** argv){
                     franka::CartesianPose carte_c(carte_init);
                     for (unsigned int i = 12; i < 15; i++)
                     {
-                        carte_c.O_T_EE[i] = cosInterp(carte_init[i],posi_goal[i-12],timer);
+                        carte_c.O_T_EE[i] = cosInterp(carte_init[i],posi_goal[i-12],timer*scaler);
                     }
                     // Log
                     if (fpsCounter >= 1000/fps)
@@ -115,7 +116,7 @@ int main(int argc, char** argv){
                         fpsCounter++;
                     }
                     // Terminal condition
-                    if (timer >= 1)
+                    if (timer*scaler >= 1)
                     {
                         return franka::MotionFinished(carte_c);
                     }
@@ -129,19 +130,19 @@ int main(int argc, char** argv){
      */
     std::cout << "Pre-assembly JP compensation ..." << std::endl;
     timer = 0.0;
-    franka::JointPositions JP_c(pre_JP);
     franka::JointPositions JP_init(pre_JP);
-    robot.control([&timer,&pre_JP,&JP_c,&JP_init,fps,&fpsCounter,&fileOut](const franka::RobotState& state,franka::Duration period)
+    robot.control([&timer,&pre_JP,&JP_init,fps,&fpsCounter,&fileOut](const franka::RobotState& state,franka::Duration period)
     -> franka::JointPositions{
         // S-Spline joint motion generation
-        timer += period.toMSec();
+        timer += period.toSec();
         if (timer == 0.0)
         {
             JP_init.q = state.q_d;
         }
+        franka::JointPositions JP_c(JP_init);
         for (unsigned int i = 0; i < 7; i++)
         {
-            JP_c.q[i] = cosInterp(JP_init.q[i],pre_JP[i],timer);
+            JP_c.q[i] = cosInterp(JP_init.q[i],pre_JP[i],timer*0.4);
         }
         // Log
         if (fpsCounter >= 1000/fps)
@@ -157,7 +158,7 @@ int main(int argc, char** argv){
             fpsCounter++;
         }
         // Terminal condition
-        if (timer >= 1.0)
+        if (timer*0.4 >= 1.0)
         {
             return franka::MotionFinished(JP_c);
         }
@@ -168,9 +169,19 @@ int main(int argc, char** argv){
      * @Assembling phase: CartesianPose motion generation
      * No orientation motion
      */
-    double pcbDepth = 0.005;
+    robot.setCollisionBehavior(
+            {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+            {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}}, {{20.0, 20.0, 18.0, 18.0, 16.0, 14.0, 12.0}},
+            {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 60.0, 25.0, 25.0, 25.0}},
+            {{20.0, 20.0, 20.0, 25.0, 25.0, 25.0}}, {{20.0, 20.0, 60.0, 25.0, 25.0, 25.0}});
+    /**
+     * @Assembling phase: CartesianPose motion generation
+     * No orientation motion
+     */
+    double pcbDepth = 0.016;
     timer = 0.0;
-    robot.control([&timer,&carte_init,pcbDepth,fps,&fpsCounter,&fileOut](const franka::RobotState& state,franka::Duration period)
+    scaler = 0.2;
+    robot.control([&timer,&carte_init,pcbDepth,fps,&fpsCounter,&fileOut,scaler](const franka::RobotState& state,franka::Duration period)
     -> franka::CartesianPose{
         // S-Spline Cartesian motion generation
         timer += period.toSec();
@@ -178,8 +189,8 @@ int main(int argc, char** argv){
         {
             carte_init = state.O_T_EE_d;
         }
-        franka::CartesianPose carte_c(carte_init);
-        carte_c.O_T_EE[14] = cosInterp(carte_init[14],carte_init[14]+pcbDepth,timer);
+        franka::CartesianPose carte_c_ass(carte_init);
+        carte_c_ass.O_T_EE[14] = cosInterp(carte_init[14],carte_init[14]-pcbDepth,timer*scaler);
         // Log
         if (fpsCounter >= 1000/fps)
         {
@@ -194,11 +205,11 @@ int main(int argc, char** argv){
             fpsCounter++;
         }
         // Terminal condition
-        if (timer >= 1.0)
+        if (timer*scaler >= 1.0)
         {
-            return franka::MotionFinished(carte_c);
+            return franka::MotionFinished(carte_c_ass);
         }
-        return carte_c;
+        return carte_c_ass;
     });
     std::cout << "Assembling phase finished" << std::endl;
     }
